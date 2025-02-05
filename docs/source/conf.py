@@ -10,7 +10,7 @@ import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join("..", "..", "src")))
 
-project = "PSF Analysis"
+project = "PSF Analysis CFIM Edition"
 copyright = (
     "2023, Friedrich Miescher Institute for Biomedical Research - Tim-Oliver Buchholz"
 )

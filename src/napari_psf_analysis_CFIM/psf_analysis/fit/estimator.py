@@ -2,9 +2,9 @@ from typing import Tuple
 
 import numpy as np
 
-from napari_psf_analysis.psf_analysis.image import Calibrated3DImage
-from napari_psf_analysis.psf_analysis.sample import Sample, YXSample, ZSample, ZYXSample
-from napari_psf_analysis.psf_analysis.utils import compute_cov_matrix
+from napari_psf_analysis_CFIM.psf_analysis.image import Calibrated3DImage
+from napari_psf_analysis_CFIM.psf_analysis.sample import Sample, YXSample, ZSample, ZYXSample
+from napari_psf_analysis_CFIM.psf_analysis.utils import compute_cov_matrix
 
 
 class Estimator:

@@ -2,10 +2,10 @@ import matplotlib
 import numpy as np
 import pytest
 
-from napari_psf_analysis.psf_analysis.fit.fit_3d import evaluate_3d_gaussian
-from napari_psf_analysis.psf_analysis.image import Calibrated3DImage
-from napari_psf_analysis.psf_analysis.psf import PSF
-from napari_psf_analysis.psf_analysis.records import PSFRecord
+from napari_psf_analysis_CFIM.psf_analysis.fit.fit_3d import evaluate_3d_gaussian
+from napari_psf_analysis_CFIM.psf_analysis.image import Calibrated3DImage
+from napari_psf_analysis_CFIM.psf_analysis.psf import PSF
+from napari_psf_analysis_CFIM.psf_analysis.records import PSFRecord
 
 matplotlib.use("agg")
 

@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 from numpy._typing import ArrayLike
 
-from napari_psf_analysis.psf_analysis.image import (
+from napari_psf_analysis_CFIM.psf_analysis.image import (
     Calibrated1DImage,
     Calibrated2DImage,
     Calibrated3DImage,

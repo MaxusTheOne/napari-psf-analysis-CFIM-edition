@@ -30,8 +30,8 @@ from qtpy.QtWidgets import (
 )
 from skimage.io import imsave
 
-from napari_psf_analysis.psf_analysis.analyzer import Analyzer
-from napari_psf_analysis.psf_analysis.parameters import PSFAnalysisInputs
+from napari_psf_analysis_CFIM.psf_analysis.analyzer import Analyzer
+from napari_psf_analysis_CFIM.psf_analysis.parameters import PSFAnalysisInputs
 
 
 def get_microscopes(psf_settings_path):
