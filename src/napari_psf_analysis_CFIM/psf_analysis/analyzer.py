@@ -22,6 +22,7 @@ class Analyzer:
         )
         self._beads = bead_extractor.extract_beads(points=self._parameters.point_data)
 
+        print(f"First bead: {self._beads[0]}")
         self._results = None
         self._result_figures = {}
         self._index = 0

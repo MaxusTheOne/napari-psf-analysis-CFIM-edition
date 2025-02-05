@@ -107,6 +107,7 @@ class PsfAnalysis(QWidget):
         self._add_advanced_settings_tab(setting_tabs)
 
         self.layout().addWidget(setting_tabs)
+        self._add_analyse_img_button()
 
         self._add_interaction_buttons()
 
@@ -121,6 +122,15 @@ class PsfAnalysis(QWidget):
         logo_label = QLabel()
         logo_label.setText(f'<img src="{logo}" width="320">')
         self.layout().addWidget(logo_label)
+
+    def _add_analyse_img_button(self):
+        pane = QGroupBox(parent=self)
+        pane.setLayout(QFormLayout())
+        self.analyse_img_button = QPushButton("Analyse Image")
+        self.analyse_img_button.setEnabled(True)
+        pane.layout().addRow(self.analyse_img_button)
+        self.layout().addWidget(pane)
+
 
     def _add_save_dialog(self):
         pane = QGroupBox(parent=self)
