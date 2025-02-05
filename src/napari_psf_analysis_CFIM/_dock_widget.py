@@ -481,7 +481,7 @@ class PsfAnalysis(QWidget):
                 point_data=point_data,
                 dpi=int(self.summary_figure_dpi.currentText()),
                 date=datetime(*self.date.date().getDate()).strftime("%Y-%m-%d"),
-                version=version("napari_psf_analysis"),
+                version=version("napari_psf_analysis_CFIM"),
             )
         )
 

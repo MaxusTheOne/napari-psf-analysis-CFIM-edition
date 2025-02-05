@@ -44,7 +44,7 @@ myst_heading_anchors = 5
 html_theme = "furo"
 html_static_path = ["_static"]
 html_title = "napari-psf-analysis"
-html_logo = "../../src/napari_psf_analysis/resources/logo.svg"
+html_logo = "../../src/napari_psf_analysis_CFIM/resources/logo.svg"
 html_theme_options = {
     "light_css_variables": {
         "font-stack": "Source Sans Pro, sans-serif",
