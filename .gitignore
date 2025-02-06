@@ -1,3 +1,7 @@
+# CFIM
+.venv
+image_intensity_stats.csv
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

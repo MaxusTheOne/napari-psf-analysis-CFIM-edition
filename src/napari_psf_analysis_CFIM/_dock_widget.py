@@ -33,6 +33,8 @@ from skimage.io import imsave
 from napari_psf_analysis_CFIM.psf_analysis.analyzer import Analyzer
 from napari_psf_analysis_CFIM.psf_analysis.parameters import PSFAnalysisInputs
 
+from napari_psf_analysis_CFIM.psf_analysis.image_statistics import save_statistics_to_file, analyze_image
+
 
 def get_microscopes(psf_settings_path):
     if psf_settings_path and exists(psf_settings_path):
@@ -427,6 +429,9 @@ class PsfAnalysis(QWidget):
         if img_data is None:
             return
 
+        # Start statistics and analysis module
+        self._create_statistic_and_validate_image(img_data)
+
         point_data = self._get_point_data()
         if point_data is None:
             return
@@ -503,6 +508,16 @@ class PsfAnalysis(QWidget):
 
         self.extract_psfs.setEnabled(False)
         self.cancel.setEnabled(True)
+
+    def _create_statistic_and_validate_image(self, img_data):
+        try:
+            stats = analyze_image(img_data)
+
+            # Save the stats to a file
+            save_statistics_to_file(stats, filename="image_intensity_stats.csv")
+
+        except Exception as e:
+            print(f"Error during image validation: {e}")
 
     def _setup_progressbar(self, point_data):
         self.progressbar.reset()
