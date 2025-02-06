@@ -9,7 +9,6 @@ from napari_psf_analysis_CFIM.psf_analysis.extract.BeadExtractor import BeadExtr
 from napari_psf_analysis_CFIM.psf_analysis.image import Calibrated3DImage
 from napari_psf_analysis_CFIM.psf_analysis.parameters import PSFAnalysisInputs
 from napari_psf_analysis_CFIM.psf_analysis.psf import PSF
-from napari_psf_analysis_CFIM.psf_analysis.bead_visualiser import visualise_bead
 
 
 class Analyzer:
