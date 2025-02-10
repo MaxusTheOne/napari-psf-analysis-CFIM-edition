@@ -3,6 +3,7 @@ import subprocess
 import napari
 import numpy as np
 import argparse
+import faulthandler
 
 
 def install_plugin():
@@ -78,12 +79,15 @@ def launch_napari_dev_mode(tif_folder):
         print("Activated plugin 'napari_psf_analysis_CFIM'.")
     except ValueError:
         print("Plugin 'napari_psf_analysis_CFIM' not found or failed to load.")
+    print(dir(napari.utils))
+    napari.utils.config._set('application.debug')
 
     # Start the Napari event loop
     napari.run()
 
 
 if __name__ == "__main__":
+    # faulthandler.enable()
     # Setup argparse for handling dev mode
     parser = argparse.ArgumentParser(description="Start the Napari plugin with optional dev mode.")
     parser.add_argument(

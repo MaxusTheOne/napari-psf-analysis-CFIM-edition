@@ -551,6 +551,8 @@ class PsfAnalysis(QWidget):
             return point_layer.data.copy()
 
     def _get_img_data(self):
+        print(self._viewer.layers)
+
         img_layer = None
         for layer in self._viewer.layers:
             if str(layer) == self.cbox_img.currentText():
