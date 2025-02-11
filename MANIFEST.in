@@ -1,4 +1,3 @@
-include LICENSE
 include README.md
 include requirements.txt
 include napari_psf_analysis_CFIM/resources/logo.png
