@@ -1,9 +1,0 @@
-napari==0.5.6
-napari-aicsimageio
-npe2
-in_n_out
-app_model
-numpy
-bfio
-aicsimageio==4.14.0
-aicspylibczi==3.2.1

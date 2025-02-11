@@ -1,6 +1,8 @@
 # CFIM
 .venv
+.testVenv
 image_intensity_stats.csv
+local_test.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
