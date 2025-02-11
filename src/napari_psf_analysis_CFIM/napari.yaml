@@ -8,6 +8,14 @@ contributions:
   - id: napari_psf_analysis_CFIM.PsfAnalysis
     title: Create Psf Analysis
     python_name: napari_psf_analysis_CFIM._dock_widget:PsfAnalysis
+  - id: napari_psf_analysis_CFIM.read_czi
+    title: Read CZI File
+    python_name: napari_psf_analysis_CFIM.czi_reader_CFIM:read_czi
+
+  readers:
+   - command: napari_psf_analysis_CFIM.read_czi
+     filename_patterns: ["*.czi"]
+     accepts_directories: false
   widgets:
   - command: napari_psf_analysis_CFIM.set_config
     display_name: Set Config
