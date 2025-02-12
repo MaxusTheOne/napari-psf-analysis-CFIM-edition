@@ -1,3 +1,4 @@
+from psf_analysis_CFIM.czi_metadata_processor import extract_key_metadata
 
 
 def read_czi(path):
@@ -12,11 +13,9 @@ def read_czi(path):
 
     # Removing the scene, time, channels. psf can only take 3. extra info can be in metadata
     squeezed_data = np.squeeze(data)
+
     # If additional metadata is required
-    metadata = {
-        "scale": reader.physical_pixel_sizes,
-        # Add any other metadata Napari might need here
-    }
+    metadata = extract_key_metadata(reader)
     # Napari expects a callable function, so we wrap the returned data
     def _reader_callable(_path=None):
         return [

@@ -122,7 +122,6 @@ class PsfAnalysis(QWidget):
     def _add_logo(self):
         logo = pathlib.Path(__file__).parent / "resources" / "logo.png"
         logo_label = QLabel()
-        print(logo)
         logo_label.setText(f'<img src="{logo}" width="320">')
         self.layout().addWidget(logo_label)
 

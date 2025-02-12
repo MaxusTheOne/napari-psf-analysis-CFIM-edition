@@ -25,65 +25,44 @@ def launch_napari():
         print("Napari is not installed. Please install it by running 'pip install napari[all]'")
         exit(1)
 
-def find_tif_file(folder_path):
+def find_file(folder_path):
     """
-    Find the first TIF file in the given folder.
-    :param folder_path: Path to the folder where TIF files are stored.
-    :return: Path to the first TIF file found, or None if no files are found.
+    Find the first file in the given folder.
+    :param folder_path: Path to the folder containing files.
+    :return: Path to the first file found, or None if no files are found.
     """
     try:
         for file_name in os.listdir(folder_path):
-            if file_name.lower().endswith(".tif"):
-                return os.path.join(folder_path, file_name)
-        print(f"No .tif files found in {folder_path}.")
+            file_path = os.path.join(folder_path, file_name)
+            if os.path.isfile(file_path):
+                return file_path
+        print(f"No valid files found in {folder_path}.")
         return None
     except FileNotFoundError:
         print(f"Folder not found: {folder_path}")
         return None
 
 
-def launch_napari_dev_mode(tif_folder):
+def launch_napari_dev_mode():
     """
     Launch Napari in dev mode:
-    - Load a TIF file from the specified folder
-    - Create a Points layer
-    - Activate the plugin 'psf_analysis_CFIM'
+    - Currently a stub, just opens the plugin
     """
     print("Launching Napari in dev mode...")
 
-    # Find a .tif file from the specified folder
-    tif_file_path = find_tif_file(tif_folder)
-    if not tif_file_path:
-        print("No valid TIF file to load. Exiting dev mode.")
-        return
 
     # Launch Napari viewer
     viewer = napari.Viewer()
 
-    # Load the TIF file
-    viewer.open(tif_file_path)
-    print(f"Loaded TIF file: {tif_file_path}")
-
-    points = np.array([
-        [64, 170, 200],  # Center of the image
-        [83, 360, 270],  # Another random point
-        [16, 480, 100]  # Another random point
-    ])
-
-    viewer.add_points(points, name="Points", size=6, face_color='red')
-
     # Activate your plugin (psf_analysis_CFIM)
     try:
-        viewer.window.add_plugin_dock_widget("psf-analysis.CFIM", widget_name="PSF Analysis - CFIM"
-)
+        viewer.window.add_plugin_dock_widget("psf-analysis-CFIM", widget_name="PSF Analysis - CFIM")
         print("Activated plugin 'psf-analysis-CFIM'.")
     except ValueError:
         print("Plugin 'psf-analysis-CFIM' not found or failed to load.")
-    print(dir(napari.utils))
 
     # Start the Napari event loop
     napari.run()
-
 
 if __name__ == "__main__":
     faulthandler.enable()
@@ -92,10 +71,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--dev", action="store_true", help="Launch Napari in 'dev mode' for testing purposes."
     )
-    parser.add_argument(
-        "--folder", type=str, default="./tif_data",
-        help="Folder containing TIF files to load in dev mode. Default is './tif_data'."
-    )
+
     args = parser.parse_args()
 
     # Install the plugin
@@ -104,7 +80,7 @@ if __name__ == "__main__":
     # Launch the appropriate mode
     if args.dev:
         # Run the custom dev mode setup
-        launch_napari_dev_mode(args.folder)
+        launch_napari_dev_mode()
     else:
         # Run the standard Napari launch
         launch_napari()
