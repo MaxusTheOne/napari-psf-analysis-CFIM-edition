@@ -3,7 +3,7 @@ from numpy.testing import assert_almost_equal
 from scipy.ndimage import gaussian_filter
 from skimage.util import img_as_float32, img_as_uint
 
-from napari_psf_analysis_CFIM.psf_analysis.utils import estimate_from_data, fwhm, sigma
+from psf_analysis_CFIM.psf_analysis.utils import estimate_from_data, fwhm, sigma
 
 
 def test_estimate_from_data():

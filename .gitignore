@@ -3,6 +3,7 @@
 .testVenv
 image_intensity_stats.csv
 local_test.py
+cleanup.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

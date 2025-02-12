@@ -1,8 +1,8 @@
 import numpy as np
 from numpy.testing import assert_almost_equal
 
-from napari_psf_analysis_CFIM.psf_analysis.fit.fit_3d import evaluate_3d_gaussian
-from napari_psf_analysis_CFIM.psf_analysis.utils import estimate_from_data
+from psf_analysis_CFIM.psf_analysis.fit.fit_3d import evaluate_3d_gaussian
+from psf_analysis_CFIM.psf_analysis.utils import estimate_from_data
 
 
 def test_evaluate_3d_gaussian():

@@ -30,10 +30,10 @@ from qtpy.QtWidgets import (
 )
 from skimage.io import imsave
 
-from napari_psf_analysis_CFIM.psf_analysis.analyzer import Analyzer
-from napari_psf_analysis_CFIM.psf_analysis.parameters import PSFAnalysisInputs
+from psf_analysis_CFIM.psf_analysis.analyzer import Analyzer
+from psf_analysis_CFIM.psf_analysis.parameters import PSFAnalysisInputs
 
-from napari_psf_analysis_CFIM.psf_analysis.image_statistics import save_statistics_to_file, analyze_image
+from psf_analysis_CFIM.psf_analysis.image_statistics import save_statistics_to_file, analyze_image
 
 
 def get_microscopes(psf_settings_path):
@@ -122,6 +122,7 @@ class PsfAnalysis(QWidget):
     def _add_logo(self):
         logo = pathlib.Path(__file__).parent / "resources" / "logo.png"
         logo_label = QLabel()
+        print(logo)
         logo_label.setText(f'<img src="{logo}" width="320">')
         self.layout().addWidget(logo_label)
 
@@ -496,7 +497,7 @@ class PsfAnalysis(QWidget):
                 point_data=point_data,
                 dpi=int(self.summary_figure_dpi.currentText()),
                 date=datetime(*self.date.date().getDate()).strftime("%Y-%m-%d"),
-                version=version("napari_psf_analysis_CFIM"),
+                version=version("psf_analysis_CFIM"),
             )
         )
 

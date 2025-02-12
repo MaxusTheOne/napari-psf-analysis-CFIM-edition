@@ -6,15 +6,15 @@ from matplotlib_scalebar.scalebar import ScaleBar
 from mpl_toolkits.mplot3d.axis3d import Axis
 from numpy._typing import ArrayLike
 
-from napari_psf_analysis_CFIM.psf_analysis.fit.fitter import YXFitter, ZFitter, ZYXFitter
-from napari_psf_analysis_CFIM.psf_analysis.image import Calibrated2DImage, Calibrated3DImage
-from napari_psf_analysis_CFIM.psf_analysis.records import (
+from psf_analysis_CFIM.psf_analysis.fit.fitter import YXFitter, ZFitter, ZYXFitter
+from psf_analysis_CFIM.psf_analysis.image import Calibrated2DImage, Calibrated3DImage
+from psf_analysis_CFIM.psf_analysis.records import (
     PSFRecord,
     YXFitRecord,
     ZFitRecord,
     ZYXFitRecord,
 )
-from napari_psf_analysis_CFIM.psf_analysis.sample import YXSample
+from psf_analysis_CFIM.psf_analysis.sample import YXSample
 
 # Patch matplotlib to render ticks in 3D correctly.
 # See: https://stackoverflow.com/a/16496436
@@ -429,7 +429,7 @@ class PSFRenderEngine:
         self._add_principal_components_annotons()
 
     def _add_axis_aligned_ellipsoid(self):
-        from napari_psf_analysis_CFIM.psf_analysis.utils import sigma
+        from psf_analysis_CFIM.psf_analysis.utils import sigma
 
         covariance = np.array(
             [

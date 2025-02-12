@@ -5,10 +5,10 @@ import numpy as np
 import pandas as pd
 from numpy._typing import ArrayLike
 
-from napari_psf_analysis_CFIM.psf_analysis.extract.BeadExtractor import BeadExtractor
-from napari_psf_analysis_CFIM.psf_analysis.image import Calibrated3DImage
-from napari_psf_analysis_CFIM.psf_analysis.parameters import PSFAnalysisInputs
-from napari_psf_analysis_CFIM.psf_analysis.psf import PSF
+from psf_analysis_CFIM.psf_analysis.extract.BeadExtractor import BeadExtractor
+from psf_analysis_CFIM.psf_analysis.image import Calibrated3DImage
+from psf_analysis_CFIM.psf_analysis.parameters import PSFAnalysisInputs
+from psf_analysis_CFIM.psf_analysis.psf import PSF
 
 
 class Analyzer:

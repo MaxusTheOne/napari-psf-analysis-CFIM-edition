@@ -1,0 +1,23 @@
+name: psf-analysis-CFIM
+schema_version: 0.1.0
+contributions:
+  commands:
+  - id: psf-analysis-CFIM.set_config
+    title: Create set_config
+    python_name: psf_analysis_CFIM._dock_widget:set_config
+  - id: psf-analysis-CFIM.PsfAnalysis
+    title: Create Psf Analysis
+    python_name: psf_analysis_CFIM._dock_widget:PsfAnalysis
+  - id: psf-analysis-CFIM.read_czi
+    title: Read CZI File
+    python_name: psf_analysis_CFIM.czi_reader_CFIM:read_czi
+
+  readers:
+   - command: psf-analysis-CFIM.read_czi
+     filename_patterns: ["*.czi"]
+     accepts_directories: false
+  widgets:
+  - command: psf-analysis-CFIM.set_config
+    display_name: Set Config
+  - command: psf-analysis-CFIM.PsfAnalysis
+    display_name: PSF Analysis - CFIM

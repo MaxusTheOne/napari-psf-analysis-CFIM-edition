@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from napari_psf_analysis_CFIM._dock_widget import (
+from psf_analysis_CFIM._dock_widget import (
     PsfAnalysis,
     get_dpi,
     get_microscopes,

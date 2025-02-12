@@ -47,7 +47,7 @@ def launch_napari_dev_mode(tif_folder):
     Launch Napari in dev mode:
     - Load a TIF file from the specified folder
     - Create a Points layer
-    - Activate the plugin 'napari_psf_analysis_CFIM'
+    - Activate the plugin 'psf_analysis_CFIM'
     """
     print("Launching Napari in dev mode...")
 
@@ -72,13 +72,13 @@ def launch_napari_dev_mode(tif_folder):
 
     viewer.add_points(points, name="Points", size=6, face_color='red')
 
-    # Activate your plugin (napari_psf_analysis_CFIM)
+    # Activate your plugin (psf_analysis_CFIM)
     try:
-        viewer.window.add_plugin_dock_widget("napari_psf_analysis_CFIM", widget_name="PSF Analysis - CFIM"
+        viewer.window.add_plugin_dock_widget("psf-analysis.CFIM", widget_name="PSF Analysis - CFIM"
 )
-        print("Activated plugin 'napari_psf_analysis_CFIM'.")
+        print("Activated plugin 'psf-analysis-CFIM'.")
     except ValueError:
-        print("Plugin 'napari_psf_analysis_CFIM' not found or failed to load.")
+        print("Plugin 'psf-analysis-CFIM' not found or failed to load.")
     print(dir(napari.utils))
 
     # Start the Napari event loop

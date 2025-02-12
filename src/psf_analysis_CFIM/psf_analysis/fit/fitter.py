@@ -3,26 +3,26 @@ from typing import Tuple
 import numpy as np
 from numpy._typing import ArrayLike
 
-from napari_psf_analysis_CFIM.psf_analysis.fit.estimator import (
+from psf_analysis_CFIM.psf_analysis.fit.estimator import (
     YXEstimator,
     ZEstimator,
     ZYXEstimator,
 )
-from napari_psf_analysis_CFIM.psf_analysis.fit.fit_1d import evaluate_1d_gaussian
-from napari_psf_analysis_CFIM.psf_analysis.fit.fit_2d import evaluate_2d_gaussian
-from napari_psf_analysis_CFIM.psf_analysis.fit.fit_3d import evaluate_3d_gaussian
-from napari_psf_analysis_CFIM.psf_analysis.image import (
+from psf_analysis_CFIM.psf_analysis.fit.fit_1d import evaluate_1d_gaussian
+from psf_analysis_CFIM.psf_analysis.fit.fit_2d import evaluate_2d_gaussian
+from psf_analysis_CFIM.psf_analysis.fit.fit_3d import evaluate_3d_gaussian
+from psf_analysis_CFIM.psf_analysis.image import (
     Calibrated1DImage,
     Calibrated2DImage,
     Calibrated3DImage,
 )
-from napari_psf_analysis_CFIM.psf_analysis.records import (
+from psf_analysis_CFIM.psf_analysis.records import (
     YXFitRecord,
     ZFitRecord,
     ZYXFitRecord,
 )
-from napari_psf_analysis_CFIM.psf_analysis.sample import YXSample, ZSample, ZYXSample
-from napari_psf_analysis_CFIM.psf_analysis.utils import fwhm
+from psf_analysis_CFIM.psf_analysis.sample import YXSample, ZSample, ZYXSample
+from psf_analysis_CFIM.psf_analysis.utils import fwhm
 
 
 class ZFitter:

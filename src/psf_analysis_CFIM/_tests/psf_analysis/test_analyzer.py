@@ -4,9 +4,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from napari_psf_analysis_CFIM.psf_analysis.analyzer import Analyzer
-from napari_psf_analysis_CFIM.psf_analysis.fit.fit_3d import evaluate_3d_gaussian
-from napari_psf_analysis_CFIM.psf_analysis.parameters import PSFAnalysisInputs
+from psf_analysis_CFIM.psf_analysis.analyzer import Analyzer
+from psf_analysis_CFIM.psf_analysis.fit.fit_3d import evaluate_3d_gaussian
+from psf_analysis_CFIM.psf_analysis.parameters import PSFAnalysisInputs
 
 
 @pytest.fixture

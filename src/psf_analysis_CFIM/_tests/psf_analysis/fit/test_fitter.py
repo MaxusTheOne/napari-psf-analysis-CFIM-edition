@@ -2,20 +2,20 @@ import numpy as np
 import pytest
 from numpy.testing import assert_almost_equal
 
-from napari_psf_analysis_CFIM.psf_analysis.fit.fit_3d import evaluate_3d_gaussian
-from napari_psf_analysis_CFIM.psf_analysis.fit.fitter import YXFitter, ZFitter, ZYXFitter
-from napari_psf_analysis_CFIM.psf_analysis.image import (
+from psf_analysis_CFIM.psf_analysis.fit.fit_3d import evaluate_3d_gaussian
+from psf_analysis_CFIM.psf_analysis.fit.fitter import YXFitter, ZFitter, ZYXFitter
+from psf_analysis_CFIM.psf_analysis.image import (
     Calibrated1DImage,
     Calibrated2DImage,
     Calibrated3DImage,
 )
-from napari_psf_analysis_CFIM.psf_analysis.records import (
+from psf_analysis_CFIM.psf_analysis.records import (
     YXFitRecord,
     ZFitRecord,
     ZYXFitRecord,
 )
-from napari_psf_analysis_CFIM.psf_analysis.sample import YXSample, ZSample, ZYXSample
-from napari_psf_analysis_CFIM.psf_analysis.utils import fwhm
+from psf_analysis_CFIM.psf_analysis.sample import YXSample, ZSample, ZYXSample
+from psf_analysis_CFIM.psf_analysis.utils import fwhm
 
 SPACING = (1, 1, 1)
 

@@ -4,7 +4,7 @@ import numpy as np
 from napari.utils.notifications import show_info
 from numpy._typing import ArrayLike
 
-from napari_psf_analysis_CFIM.psf_analysis.image import Calibrated3DImage
+from psf_analysis_CFIM.psf_analysis.image import Calibrated3DImage
 
 
 class BeadExtractor:

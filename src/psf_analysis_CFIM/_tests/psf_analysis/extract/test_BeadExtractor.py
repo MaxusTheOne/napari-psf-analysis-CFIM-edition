@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
 
-from napari_psf_analysis_CFIM.psf_analysis.extract.BeadExtractor import BeadExtractor
-from napari_psf_analysis_CFIM.psf_analysis.image import Calibrated3DImage
+from psf_analysis_CFIM.psf_analysis.extract.BeadExtractor import BeadExtractor
+from psf_analysis_CFIM.psf_analysis.image import Calibrated3DImage
 
 DATA = np.zeros((300, 200, 200), dtype=np.uint16)
 DATA[50, 90, 110] = 1
