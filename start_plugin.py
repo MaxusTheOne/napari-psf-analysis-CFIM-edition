@@ -44,26 +44,25 @@ def launch_napari_dev_mode():
     except ValueError:
         print("Plugin 'psf-analysis-CFIM' not found or failed to load.")
 
-    # Start the Napari event loop
     napari.run()
 
 if __name__ == "__main__":
     faulthandler.enable()
     # Setup argparse for handling dev mode
-    parser = argparse.ArgumentParser(description="Start the Napari plugin with optional dev mode.")
+    parser = argparse.ArgumentParser(description="Start the Napari plugin with optional dev mode. Expects the plugin to be installed.")
     parser.add_argument(
         "--dev", action="store_true", help="Launch Napari in 'dev mode' for testing purposes."
     )
 
     args = parser.parse_args()
 
-    # Install the plugin
-    install_plugin()
 
     # Launch the appropriate mode
     if args.dev:
         # Run the custom dev mode setup
         launch_napari_dev_mode()
     else:
+        # Install the plugin
+        install_plugin()
         # Run the standard Napari launch
         launch_napari()

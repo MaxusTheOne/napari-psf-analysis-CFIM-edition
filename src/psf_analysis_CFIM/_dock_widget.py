@@ -6,6 +6,7 @@ from os.path import basename, dirname, exists, getctime, join
 import napari.layers
 import numpy as np
 import yaml
+from PyQt5.QtWidgets import QMessageBox
 from magicgui import magic_factory
 from napari import viewer
 from napari._qt.qthreading import FunctionWorker, thread_worker
@@ -94,6 +95,8 @@ class PsfAnalysis(QWidget):
 
         self.summary_figs = None
         self.results = None
+        self.warnings = []
+        self.errors = []
 
         self.cancel_extraction = False
 
@@ -130,8 +133,54 @@ class PsfAnalysis(QWidget):
         pane.setLayout(QFormLayout())
         self.analyse_img_button = QPushButton("Analyse Image")
         self.analyse_img_button.setEnabled(True)
+        self.analyse_img_button.clicked.connect(self._create_statistic_and_validate_image)
         pane.layout().addRow(self.analyse_img_button)
         self.layout().addWidget(pane)
+
+        self.summary_button = QPushButton(self)
+        self.summary_button.clicked.connect(self._show_details)
+        self.layout().addWidget(self.summary_button)
+
+        self._update_summary()
+
+    def _update_summary(self):
+        """Update the button text with a summary of warnings and errors."""
+        num_warnings = len(self.warnings)
+        num_errors = len(self.errors)
+
+        parts = []
+        if num_warnings:
+            parts.append(f"{num_warnings} warning{'s' if num_warnings > 1 else ''}")
+        if num_errors:
+            parts.append(f"{num_errors} error{'s' if num_errors > 1 else ''}")
+
+        summary_text = " ".join(parts) if parts else "No issues"
+        self.summary_button.setText(summary_text)
+
+    def _show_details(self):
+        """Show a dialog with detailed error and warning messages."""
+        details = ""
+        if self.warnings:
+            details += "Warnings:\n" + "\n".join(self.warnings) + "\n\n"
+        if self.errors:
+            details += "Errors:\n" + "\n".join(self.errors)
+        if not details:
+            details = "No issues detected."
+
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle("Issue Details")
+        msg_box.setText(details)
+        msg_box.exec_()
+
+    def add_warning(self, message: str):
+        """Add a warning message and update the summary."""
+        self.warnings.append(message)
+        self._update_summary()
+
+    def add_error(self, message: str):
+        """Add an error message and update the summary."""
+        self.errors.append(message)
+        self._update_summary()
 
 
     def _add_save_dialog(self):
@@ -207,7 +256,7 @@ class PsfAnalysis(QWidget):
         self.bead_size.setMinimum(0)
         self.bead_size.setMaximum(1000)
         self.bead_size.setSingleStep(1)
-        self.bead_size.clear()
+        self.bead_size.setValue(100)
         advanced_settings.layout().addRow(
             QLabel("Bead Size [nm]", advanced_settings), self.bead_size
         )
@@ -444,8 +493,7 @@ class PsfAnalysis(QWidget):
         if img_data is None:
             return
 
-        # Start statistics and analysis module
-        self._create_statistic_and_validate_image(img_data)
+
 
         point_data = self._get_point_data()
         if point_data is None:
@@ -459,7 +507,7 @@ class PsfAnalysis(QWidget):
                 self._viewer.add_image(
                     measurement_stack,
                     name="Analyzed Beads",
-                    interpolation="bicubic",
+                    interpolation3d="bicubic",
                     rgb=True,
                     scale=measurement_scale,
                 )
@@ -514,7 +562,7 @@ class PsfAnalysis(QWidget):
                 version=version("psf_analysis_CFIM"),
             )
         )
-        print(worker)
+
         worker.yielded.connect(_update_progress)
         worker.returned.connect(_on_done)
         worker.aborted.connect(_reset_state)
@@ -524,9 +572,9 @@ class PsfAnalysis(QWidget):
         self.extract_psfs.setEnabled(False)
         self.cancel.setEnabled(True)
 
-    def _create_statistic_and_validate_image(self, img_data):
+    def _create_statistic_and_validate_image(self):
         try:
-            stats = analyze_image(img_data)
+            stats = analyze_image(self._get_img_data())
 
             # Save the stats to a file
             save_statistics_to_file(stats, filename="image_intensity_stats.csv")
@@ -566,7 +614,7 @@ class PsfAnalysis(QWidget):
             return point_layer.data.copy()
 
     def _get_img_data(self):
-        print(self._viewer.layers)
+
 
         img_layer = None
         for layer in self._viewer.layers:

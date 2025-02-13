@@ -71,7 +71,7 @@ class ZFitter:
         """
         optimal_parameters, covariance = self._fit_gaussian()
         error = np.abs(np.sqrt(np.diag(covariance)))
-        print(optimal_parameters)
+
         return ZFitRecord(
             z_bg=optimal_parameters[0],
             z_amp=optimal_parameters[1],

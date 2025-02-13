@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from napari.utils.notifications import show_info
 
 
 def analyze_image(img_data, num_bins=8):
@@ -59,4 +60,4 @@ def save_statistics_to_file(stats, filename="image_statistics.csv"):
     # Save as a CSV using Pandas
     df = pd.DataFrame(stats.items(), columns=["Intensity Range", "Percentage"])
     df.to_csv(filename, index=False)
-    print(f"Statistics saved to {filename}")
+    show_info("Statistics saved to file.")
