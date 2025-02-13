@@ -359,7 +359,7 @@ class PsfAnalysis(QWidget):
         self.psf_z_box_size.setMinimum(1.0)
         self.psf_z_box_size.setMaximum(1000000.0)
         self.psf_z_box_size.setSingleStep(500.0)
-        self.psf_z_box_size.setValue(6000.0)
+        self.psf_z_box_size.setValue(3000.0)
         basic_settings.layout().addRow(
             QLabel("PSF Z Box Size [nm]", basic_settings), self.psf_z_box_size
         )
@@ -394,11 +394,21 @@ class PsfAnalysis(QWidget):
                     self.date.setDate(
                         datetime.fromtimestamp(getctime(layer.source.path))
                     )
-                    print(layer.metadata)
                     self.fill_settings_boxes(layer)
 
     def fill_settings_boxes(self, layer):
-        self.magnification.setValue(int(layer.metadata["Magnification"]))
+        metadata = layer.metadata
+        self.microscope.setText(metadata["MicroscopeType"])
+        self.magnification.setValue(int(metadata["Magnification"]))
+        self.objective_id.setText(metadata["ObjectiveID"])
+        self.na.setValue(float(metadata["NA"]))
+        self.airy_unit.setValue(round(float(metadata["AiryUnit"]), 2))
+        self.excitation.setValue(int(metadata["Excitation"]))
+        self.emission.setValue(int(metadata["Emission"]))
+        self.xy_pixelsize.setValue(round(float(layer.scale[1])*1000,2))
+        self.z_spacing.setValue(round(float(layer.scale[0])*1000,2))
+
+
 
     def _layer_inserted(self, event):
         if isinstance(event.value, napari.layers.Image):
@@ -504,7 +514,7 @@ class PsfAnalysis(QWidget):
                 version=version("psf_analysis_CFIM"),
             )
         )
-
+        print(worker)
         worker.yielded.connect(_update_progress)
         worker.returned.connect(_on_done)
         worker.aborted.connect(_reset_state)

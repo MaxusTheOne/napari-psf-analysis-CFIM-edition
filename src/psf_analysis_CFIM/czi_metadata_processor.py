@@ -45,7 +45,7 @@ def extract_key_metadata(reader):
         "AiryUnit": "PinholeSizeAiry",
         "Excitation": "ExcitationWavelength",
         "Emission": "EmissionWavelength",
-        "objectiveID": "ObjectiveName",
+        "ObjectiveID": "ObjectiveName",
     }
 
     custom_meta = {}

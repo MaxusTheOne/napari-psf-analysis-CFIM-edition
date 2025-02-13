@@ -49,7 +49,6 @@ class ZFitter:
 
     def _fit_gaussian(self) -> Tuple[ArrayLike, ArrayLike]:
         from scipy.optimize import curve_fit
-
         return curve_fit(
             evaluate_1d_gaussian,
             xdata=self._estimator.sample.get_ravelled_coordinates(),
@@ -72,7 +71,7 @@ class ZFitter:
         """
         optimal_parameters, covariance = self._fit_gaussian()
         error = np.abs(np.sqrt(np.diag(covariance)))
-
+        print(optimal_parameters)
         return ZFitRecord(
             z_bg=optimal_parameters[0],
             z_amp=optimal_parameters[1],

@@ -16,6 +16,7 @@ class BeadExtractor:
         self._image = image
         self._patch_size = patch_size
         self._margins = np.array(patch_size) / np.array(image.spacing)
+        print(self._margins)
 
     def _in_margins(self, point: Tuple[int, int, int]) -> bool:
         lower_bounds = self._margins / 2

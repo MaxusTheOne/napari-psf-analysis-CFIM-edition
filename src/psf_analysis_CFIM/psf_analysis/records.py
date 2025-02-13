@@ -4,8 +4,8 @@ from pydantic import BaseModel, NonNegativeFloat, PositiveFloat, PositiveInt
 
 
 class ZFitRecord(BaseModel):
-    z_bg: NonNegativeFloat
-    z_amp: NonNegativeFloat
+    z_bg: float
+    z_amp: float
     z_mu: NonNegativeFloat
     z_sigma: NonNegativeFloat
     z_fwhm: NonNegativeFloat
