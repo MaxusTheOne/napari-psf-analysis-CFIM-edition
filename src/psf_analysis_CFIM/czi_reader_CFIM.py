@@ -1,10 +1,10 @@
+from aicsimageio.readers import CziReader
 from psf_analysis_CFIM.czi_metadata_processor import extract_key_metadata
+import numpy as np
 
 
 def read_czi(path):
     """Load a .czi file and return the data in a proper callable format."""
-    from aicsimageio.readers import CziReader
-    import numpy as np
 
     # Read the .czi file using the appropriate library
     reader = CziReader(path)

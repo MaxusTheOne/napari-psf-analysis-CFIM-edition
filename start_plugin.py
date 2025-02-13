@@ -25,23 +25,6 @@ def launch_napari():
         print("Napari is not installed. Please install it by running 'pip install napari[all]'")
         exit(1)
 
-def find_file(folder_path):
-    """
-    Find the first file in the given folder.
-    :param folder_path: Path to the folder containing files.
-    :return: Path to the first file found, or None if no files are found.
-    """
-    try:
-        for file_name in os.listdir(folder_path):
-            file_path = os.path.join(folder_path, file_name)
-            if os.path.isfile(file_path):
-                return file_path
-        print(f"No valid files found in {folder_path}.")
-        return None
-    except FileNotFoundError:
-        print(f"Folder not found: {folder_path}")
-        return None
-
 
 def launch_napari_dev_mode():
     """

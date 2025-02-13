@@ -32,7 +32,8 @@ def extract_key_metadata(reader):
     """
     # Start with keys that Napari is expecting.
     metadata = {
-        "scale": reader.physical_pixel_sizes
+        "scale": reader.physical_pixel_sizes,
+        "units": "nanometer"
         # You can add any other top-level keys Napari supports, e.g. "name", "colormap", etc.
     }
 
@@ -40,7 +41,11 @@ def extract_key_metadata(reader):
     key_mapping = {
         "NA": "LensNA",
         "MicroscopeType": "CameraName",
-        "Magnification": "NominalMagnification"
+        "Magnification": "NominalMagnification",
+        "AiryUnit": "PinholeSizeAiry",
+        "Excitation": "ExcitationWavelength",
+        "Emission": "EmissionWavelength",
+        "objectiveID": "ObjectiveName",
     }
 
     custom_meta = {}
