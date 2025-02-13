@@ -6,17 +6,14 @@ import numpy as np
 def read_czi(path):
     """Load a .czi file and return the data in a proper callable format."""
 
-    # Read the .czi file using the appropriate library
     reader = CziReader(path)
-    data = reader.data  # or reader.get_image_data("CZYX")
-
+    data = reader.data
 
     # Removing the scene, time, channels. psf can only take 3. extra info can be in metadata
     squeezed_data = np.squeeze(data)
 
-    # If additional metadata is required
     metadata = extract_key_metadata(reader)
-    # Napari expects a callable function, so we wrap the returned data
+
     def _reader_callable(_path=None):
         return [
             (squeezed_data, metadata, "image")  # A tuple -> (data, metadata, layer_type)

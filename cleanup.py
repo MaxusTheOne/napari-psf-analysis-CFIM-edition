@@ -67,8 +67,8 @@ if __name__ == "__main__":
     print("Cleaning up build files...")
     delete_items()
 
-    # Reinstall the package
-    print("\nReinstalling the package...")
-    reinstall_package()
+    # # Reinstall the package
+    # print("\nReinstalling the package...")
+    # reinstall_package()
 
     print("\nProcess completed!")

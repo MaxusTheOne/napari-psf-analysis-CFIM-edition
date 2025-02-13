@@ -231,7 +231,7 @@ class PsfAnalysis(QWidget):
             "Type of microscope used for the PSF acquisition."
         )
         advanced_settings.layout().addRow(
-            QLabel("Mircoscope Type", advanced_settings), self.microscope_type
+            QLabel("Microscope Type", advanced_settings), self.microscope_type
         )
         self.excitation = QDoubleSpinBox(parent=advanced_settings)
         self.excitation.setToolTip("Excitation wavelength used to image the " "beads.")
@@ -394,6 +394,11 @@ class PsfAnalysis(QWidget):
                     self.date.setDate(
                         datetime.fromtimestamp(getctime(layer.source.path))
                     )
+                    print(layer.metadata)
+                    self.fill_settings_boxes(layer)
+
+    def fill_settings_boxes(self, layer):
+        self.magnification.setValue(int(layer.metadata["Magnification"]))
 
     def _layer_inserted(self, event):
         if isinstance(event.value, napari.layers.Image):
