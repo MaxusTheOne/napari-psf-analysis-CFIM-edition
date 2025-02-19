@@ -36,6 +36,7 @@ from psf_analysis_CFIM.psf_analysis.analyzer import Analyzer
 from psf_analysis_CFIM.psf_analysis.parameters import PSFAnalysisInputs
 
 from psf_analysis_CFIM.psf_analysis.image_analysis import save_statistics_to_file, analyze_image
+from psf_analysis_CFIM.psf_analysis.psf import PSF
 
 
 def get_microscopes(psf_settings_path):
@@ -368,7 +369,7 @@ class PsfAnalysis(QWidget):
         self.psf_z_box_size.setMinimum(1.0)
         self.psf_z_box_size.setMaximum(1000000.0)
         self.psf_z_box_size.setSingleStep(500.0)
-        self.psf_z_box_size.setValue(3000.0)
+        self.psf_z_box_size.setValue(2000.0)
         basic_settings.layout().addRow(
             QLabel("PSF Z Box Size [nm]", basic_settings), self.psf_z_box_size
         )
@@ -461,10 +462,23 @@ class PsfAnalysis(QWidget):
 
         self._setup_progressbar(point_data)
 
+        analyzer = Analyzer(parameters=PSFAnalysisInputs(
+            microscope=self._get_microscope(),
+            magnification=self.magnification.value(),
+            na=self.na.value(),
+            spacing=self._get_spacing(),
+            patch_size=self._get_patch_size(),
+            name=self._get_img_name(),
+            img_data=img_data,
+            point_data=point_data,
+            dpi=int(self.summary_figure_dpi.currentText()),
+            date=datetime(*self.date.date().getDate()).strftime("%Y-%m-%d"),
+            version=version("psf_analysis_CFIM")
+        ))
+
         def _on_done(result):
             if result is not None:
                 measurement_stack, measurement_scale = result
-                print(measurement_stack.shape)
                 self._viewer.add_image(
                     measurement_stack,
                     name="Analyzed Beads",
@@ -475,7 +489,35 @@ class PsfAnalysis(QWidget):
                 self._viewer.dims.set_point(0, 0)
                 self._viewer.reset_view()
                 self.summary_figs = measurement_stack
+
+                # CFIM :) - Display a PSF of the average bead
+                averaged_bead = analyzer.get_averaged_bead()
+                averaged_psf = PSF(image=averaged_bead)
+
+                averaged_psf.analyze()
+                averaged_summary_image = averaged_psf.get_summary_image(
+                    date=analyzer.get_date(),
+                    version=analyzer.get_version(),
+                    dpi=analyzer.get_dpi(),
+                )
+                display_averaged_measurement_stack(self._viewer, averaged_summary_image, measurement_scale)
+
             _reset_state()
+
+        def display_averaged_measurement_stack(viewer, averaged_measurement, measurement_scale):
+            """Display the averaged measurement stack in the viewer."""
+            averaged_measurement = averaged_measurement[np.newaxis, ...]
+
+            viewer.add_image(
+                averaged_measurement,
+                name="Averaged PSF",
+                interpolation2d="bicubic",
+                rgb=True,
+                scale=measurement_scale,
+            )
+            viewer.dims.set_point(0, 0)
+            viewer.reset_view()
+
 
         def _update_progress(progress: int):
             self.progressbar.setValue(progress)
@@ -493,7 +535,6 @@ class PsfAnalysis(QWidget):
 
         @thread_worker(progress={"total": len(point_data)})
         def measure(parameters: PSFAnalysisInputs):
-            analyzer = Analyzer(parameters=parameters)
 
             yield from analyzer
 
@@ -509,20 +550,8 @@ class PsfAnalysis(QWidget):
                 return measurement_stack, measurement_scale
 
         worker: FunctionWorker = measure(
-            parameters=PSFAnalysisInputs(
-                microscope=self._get_microscope(),
-                magnification=self.magnification.value(),
-                na=self.na.value(),
-                spacing=self._get_spacing(),
-                patch_size=self._get_patch_size(),
-                name=self._get_img_name(),
-                img_data=img_data,
-                point_data=point_data,
-                dpi=int(self.summary_figure_dpi.currentText()),
-                date=datetime(*self.date.date().getDate()).strftime("%Y-%m-%d"),
-                version=version("psf_analysis_CFIM"),
+            parameters=analyzer._parameters
             )
-        )
 
         worker.yielded.connect(_update_progress)
         worker.returned.connect(_on_done)

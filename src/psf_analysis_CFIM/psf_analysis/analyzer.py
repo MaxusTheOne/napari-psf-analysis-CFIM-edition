@@ -52,6 +52,29 @@ class Analyzer:
         else:
             raise StopIteration()
 
+    def get_date(self):
+        """Return the date of the image."""
+        return self._parameters.date
+
+    def get_version(self):
+        """Return the version of the analysis."""
+        return self._parameters.version
+
+    def get_dpi(self):
+        """Return the DPI of the analysis."""
+        return self._parameters.dpi
+
+    def get_raw_beads(self):
+        """Return the raw data of the beads before analysis."""
+        return self._beads
+
+    def get_averaged_bead(self):
+        """Average the raw bead data before analysis."""
+        raw_beads = [bead.data for bead in self.get_raw_beads()]
+        averaged_bead_data = np.mean(raw_beads, axis=0).astype(np.int32)
+        averaged_bead = Calibrated3DImage(data=averaged_bead_data, spacing=self._parameters.spacing)
+        return averaged_bead
+
     def _extend_result_table(self, bead, results):
         extended_results = results.copy()
         extended_results["z_mu"] += bead.offset[0] * self._parameters.spacing[0]

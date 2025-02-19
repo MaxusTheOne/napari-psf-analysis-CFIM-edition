@@ -12,7 +12,7 @@ class CalibratedImage(BaseModel):
     class Config:
         arbitrary_types_allowed = True
 
-
+# TODO: Make Calibrated3DImage.mean() method
 class Calibrated3DImage(CalibratedImage):
     offset: Tuple[int, int, int] = (0,) * 3
 
