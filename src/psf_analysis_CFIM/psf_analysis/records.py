@@ -39,9 +39,9 @@ class YXFitRecord(BaseModel):
 class ZYXFitRecord(BaseModel):
     zyx_bg: NonNegativeFloat
     zyx_amp: NonNegativeFloat
-    zyx_z_mu: NonNegativeFloat
-    zyx_y_mu: NonNegativeFloat
-    zyx_x_mu: NonNegativeFloat
+    zyx_z_mu: float
+    zyx_y_mu: float
+    zyx_x_mu: float
     zyx_czz: float
     zyx_czy: float
     zyx_czx: float

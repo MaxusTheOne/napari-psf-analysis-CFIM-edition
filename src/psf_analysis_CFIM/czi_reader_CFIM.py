@@ -10,6 +10,7 @@ def read_czi(path):
     data = reader.data
 
     # Removing the scene, time, channels. psf can only take 3. extra info can be in metadata
+    # This might give an error later
     squeezed_data = np.squeeze(data)
 
     metadata = extract_key_metadata(reader)

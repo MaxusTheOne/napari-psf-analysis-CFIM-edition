@@ -1,6 +1,6 @@
 # CFIM
 .venv
-.testVenv
+.buildVenv
 image_intensity_stats.csv
 local_test.py
 cleanup.py

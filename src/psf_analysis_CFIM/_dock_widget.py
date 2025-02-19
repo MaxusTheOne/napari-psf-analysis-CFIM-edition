@@ -31,10 +31,11 @@ from qtpy.QtWidgets import (
 )
 from skimage.io import imsave
 
+from psf_analysis_CFIM.error_display_widget import ErrorDisplayWidget
 from psf_analysis_CFIM.psf_analysis.analyzer import Analyzer
 from psf_analysis_CFIM.psf_analysis.parameters import PSFAnalysisInputs
 
-from psf_analysis_CFIM.psf_analysis.image_statistics import save_statistics_to_file, analyze_image
+from psf_analysis_CFIM.psf_analysis.image_analysis import save_statistics_to_file, analyze_image
 
 
 def get_microscopes(psf_settings_path):
@@ -113,6 +114,8 @@ class PsfAnalysis(QWidget):
 
         self.layout().addWidget(setting_tabs)
         self._add_analyse_img_button()
+        self.error_widget = ErrorDisplayWidget(parent=self)
+        self.layout().addWidget(self.error_widget)
 
         self._add_interaction_buttons()
 
@@ -137,50 +140,7 @@ class PsfAnalysis(QWidget):
         pane.layout().addRow(self.analyse_img_button)
         self.layout().addWidget(pane)
 
-        self.summary_button = QPushButton(self)
-        self.summary_button.clicked.connect(self._show_details)
-        self.layout().addWidget(self.summary_button)
 
-        self._update_summary()
-
-    def _update_summary(self):
-        """Update the button text with a summary of warnings and errors."""
-        num_warnings = len(self.warnings)
-        num_errors = len(self.errors)
-
-        parts = []
-        if num_warnings:
-            parts.append(f"{num_warnings} warning{'s' if num_warnings > 1 else ''}")
-        if num_errors:
-            parts.append(f"{num_errors} error{'s' if num_errors > 1 else ''}")
-
-        summary_text = " ".join(parts) if parts else "No issues"
-        self.summary_button.setText(summary_text)
-
-    def _show_details(self):
-        """Show a dialog with detailed error and warning messages."""
-        details = ""
-        if self.warnings:
-            details += "Warnings:\n" + "\n".join(self.warnings) + "\n\n"
-        if self.errors:
-            details += "Errors:\n" + "\n".join(self.errors)
-        if not details:
-            details = "No issues detected."
-
-        msg_box = QMessageBox(self)
-        msg_box.setWindowTitle("Issue Details")
-        msg_box.setText(details)
-        msg_box.exec_()
-
-    def add_warning(self, message: str):
-        """Add a warning message and update the summary."""
-        self.warnings.append(message)
-        self._update_summary()
-
-    def add_error(self, message: str):
-        """Add an error message and update the summary."""
-        self.errors.append(message)
-        self._update_summary()
 
 
     def _add_save_dialog(self):
@@ -504,10 +464,11 @@ class PsfAnalysis(QWidget):
         def _on_done(result):
             if result is not None:
                 measurement_stack, measurement_scale = result
+                print(measurement_stack.shape)
                 self._viewer.add_image(
                     measurement_stack,
                     name="Analyzed Beads",
-                    interpolation3d="bicubic",
+                    interpolation2d="bicubic",
                     rgb=True,
                     scale=measurement_scale,
                 )
@@ -572,15 +533,17 @@ class PsfAnalysis(QWidget):
         self.extract_psfs.setEnabled(False)
         self.cancel.setEnabled(True)
 
+    # TODO: Make this run on image change
     def _create_statistic_and_validate_image(self):
         try:
-            stats = analyze_image(self._get_img_data())
+            self.error_widget.clear()
+            stats = analyze_image(self._get_img_data(), self.error_widget)
 
             # Save the stats to a file
             save_statistics_to_file(stats, filename="image_intensity_stats.csv")
 
         except Exception as e:
-            print(f"Error during image validation: {e}")
+            self.error_widget.add_error(f"Error during image validation: {e}")
 
     def _setup_progressbar(self, point_data):
         self.progressbar.reset()
