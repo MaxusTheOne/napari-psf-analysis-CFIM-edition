@@ -1,7 +1,7 @@
 from typing import Tuple
 
 from numpy._typing import ArrayLike
-from pydantic import BaseModel, PositiveFloat, validator
+from pydantic import BaseModel, PositiveFloat, validator, field_validator
 
 
 class CalibratedImage(BaseModel):
@@ -28,8 +28,8 @@ class Calibrated3DImage(CalibratedImage):
 class Calibrated2DImage(CalibratedImage):
     offset: Tuple[int, int] = (0,) * 2
 
-    @validator("data")
-    def check_ndims(data: ArrayLike):
+    @field_validator("data")
+    def check_ndims(cls, data: ArrayLike):
         assert data.ndim == 2, "Data must be 2D."
         return data
 

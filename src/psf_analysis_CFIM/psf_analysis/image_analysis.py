@@ -85,13 +85,13 @@ def error_handling_noise(img_data, error_widget):
 
     # TODO: config file
     high_noise_threshold = 120  # Example threshold for high noise
-    low_snr_threshold = 20  # Example threshold for low SNR in dB
+    low_snr_threshold = 10  # Example threshold for low SNR in dB
 
     # Imagine not using elif. SMH.
     if snr < low_snr_threshold:
-        error_widget.add_error(f"Low SNR detected. SNR: {snr:.2f} dB")
+        error_widget.add_warning(f"Low SNR detected. Image details may be obscured due to low contrast. Consider optimizing exposure or reducing background noise.  SNR: {snr:.2f} dB")
     elif standard_deviation > high_noise_threshold:
-            error_widget.add_warning(f"High noise detected. Standard deviation: {standard_deviation:.2f}")
+            error_widget.add_error(f"High noise detected. Standard deviation: {standard_deviation:.2f}")
 
 
 def _calculate_snr(img_data: np.ndarray) -> float:

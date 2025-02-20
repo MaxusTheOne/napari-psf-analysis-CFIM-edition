@@ -6,7 +6,6 @@ from os.path import basename, dirname, exists, getctime, join
 import napari.layers
 import numpy as np
 import yaml
-from PyQt5.QtWidgets import QMessageBox
 from magicgui import magic_factory
 from napari import viewer
 from napari._qt.qthreading import FunctionWorker, thread_worker
@@ -31,11 +30,11 @@ from qtpy.QtWidgets import (
 )
 from skimage.io import imsave
 
+from psf_analysis_CFIM.bead_finder_CFIM import BeadFinder
 from psf_analysis_CFIM.error_display_widget import ErrorDisplayWidget
 from psf_analysis_CFIM.psf_analysis.analyzer import Analyzer
-from psf_analysis_CFIM.psf_analysis.parameters import PSFAnalysisInputs
-
 from psf_analysis_CFIM.psf_analysis.image_analysis import save_statistics_to_file, analyze_image
+from psf_analysis_CFIM.psf_analysis.parameters import PSFAnalysisInputs
 from psf_analysis_CFIM.psf_analysis.psf import PSF
 
 
@@ -100,6 +99,8 @@ class PsfAnalysis(QWidget):
         self.warnings = []
         self.errors = []
 
+        self.bead_finder = None
+
         self.cancel_extraction = False
 
         self.setLayout(QVBoxLayout())
@@ -114,8 +115,8 @@ class PsfAnalysis(QWidget):
         self._add_advanced_settings_tab(setting_tabs)
 
         self.layout().addWidget(setting_tabs)
-        self._add_analyse_img_button()
-        self.error_widget = ErrorDisplayWidget(parent=self)
+        self._add_analyse_buttons()
+
         self.layout().addWidget(self.error_widget)
 
         self._add_interaction_buttons()
@@ -132,17 +133,35 @@ class PsfAnalysis(QWidget):
         logo_label.setText(f'<img src="{logo}" width="320">')
         self.layout().addWidget(logo_label)
 
-    def _add_analyse_img_button(self):
+    def _add_analyse_buttons(self):
         pane = QGroupBox(parent=self)
         pane.setLayout(QFormLayout())
+        self.find_beads_button = QPushButton("Find Beads")
+        self.find_beads_button.setEnabled(False)
+        self.find_beads_button.clicked.connect(self.find_beads)
+        pane.layout().addRow(self.find_beads_button)
         self.analyse_img_button = QPushButton("Analyse Image")
         self.analyse_img_button.setEnabled(True)
         self.analyse_img_button.clicked.connect(self._create_statistic_and_validate_image)
         pane.layout().addRow(self.analyse_img_button)
+        self.error_widget = ErrorDisplayWidget(parent=self)
+        pane.layout().addRow(self.error_widget)
         self.layout().addWidget(pane)
 
+    def find_beads(self):
+        scale = self.bead_finder.get_scale()
+
+        beads= self.bead_finder.find_beads()
+
+        self._point_list_to_viewer(beads, scale)
 
 
+
+    def _img_to_viewer(self, image, scale=None, name="BeadTest"):
+        self._viewer.add_image(image, name=name, scale=scale)
+
+    def _point_list_to_viewer(self, points, scale=None):
+        self._viewer.add_points(points, name="Beads", scale=scale)
 
     def _add_save_dialog(self):
         pane = QGroupBox(parent=self)
@@ -369,7 +388,7 @@ class PsfAnalysis(QWidget):
         self.psf_z_box_size.setMinimum(1.0)
         self.psf_z_box_size.setMaximum(1000000.0)
         self.psf_z_box_size.setSingleStep(500.0)
-        self.psf_z_box_size.setValue(2000.0)
+        self.psf_z_box_size.setValue(2500.0)
         basic_settings.layout().addRow(
             QLabel("PSF Z Box Size [nm]", basic_settings), self.psf_z_box_size
         )
@@ -401,10 +420,13 @@ class PsfAnalysis(QWidget):
             self.current_img_index = self.cbox_img.currentIndex()
             for layer in self._viewer.layers:
                 if str(layer) == self.cbox_img.itemText(self.cbox_img.currentIndex()):
+                    print(layer.source.path)
                     self.date.setDate(
                         datetime.fromtimestamp(getctime(layer.source.path))
                     )
                     self.fill_settings_boxes(layer)
+                    self._create_statistic_and_validate_image()
+                    self._create_bead_finder(layer)
 
     def fill_settings_boxes(self, layer):
         metadata = layer.metadata
@@ -417,6 +439,13 @@ class PsfAnalysis(QWidget):
         self.emission.setValue(int(metadata["Emission"]))
         self.xy_pixelsize.setValue(round(float(layer.scale[1])*1000,2))
         self.z_spacing.setValue(round(float(layer.scale[0])*1000,2))
+
+    def _create_bead_finder(self, layer):
+        if self.bead_finder is None:
+            self.find_beads_button.setEnabled(True)
+        else:
+            self.bead_finder.close()
+        self.bead_finder = BeadFinder(layer.data, layer.scale)
 
 
 
@@ -534,7 +563,7 @@ class PsfAnalysis(QWidget):
             self.progressbar.reset()
 
         @thread_worker(progress={"total": len(point_data)})
-        def measure(parameters: PSFAnalysisInputs):
+        def measure():
 
             yield from analyzer
 
@@ -549,9 +578,7 @@ class PsfAnalysis(QWidget):
             if measurement_stack is not None:
                 return measurement_stack, measurement_scale
 
-        worker: FunctionWorker = measure(
-            parameters=analyzer._parameters
-            )
+        worker: FunctionWorker = measure()
 
         worker.yielded.connect(_update_progress)
         worker.returned.connect(_on_done)
@@ -562,14 +589,10 @@ class PsfAnalysis(QWidget):
         self.extract_psfs.setEnabled(False)
         self.cancel.setEnabled(True)
 
-    # TODO: Make this run on image change
     def _create_statistic_and_validate_image(self):
         try:
             self.error_widget.clear()
-            stats = analyze_image(self._get_img_data(), self.error_widget)
-
-            # Save the stats to a file
-            save_statistics_to_file(stats, filename="image_intensity_stats.csv")
+            analyze_image(self._get_img_data(), self.error_widget)
 
         except Exception as e:
             self.error_widget.add_error(f"Error during image validation: {e}")

@@ -96,9 +96,11 @@ class YXFitter:
     def _get_yx_sample(self) -> YXSample:
         shape = self.image.data.shape
 
+
         return YXSample(
             image=Calibrated2DImage(
-                data=self.image.data[shape[0] // 2], spacing=self.image.spacing[1:]
+                data=self.image.data[shape[0] // 2],
+                spacing=self.image.spacing[1:]
             )
         )
 

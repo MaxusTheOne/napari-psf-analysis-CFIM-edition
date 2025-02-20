@@ -5,6 +5,8 @@ import numpy as np
 import argparse
 import faulthandler
 
+from psf_analysis_CFIM.czi_reader_CFIM import read_czi
+
 
 def install_plugin():
     """Install the plugin using pip."""
@@ -16,6 +18,12 @@ def install_plugin():
         print(f"Failed to install the plugin. Error: {e}")
         exit(1)
 
+def load_czi_file(viewer, czi_file):
+    """Load a .czi file into the Napari viewer."""
+    print(f"Loading .czi file: {czi_file}")
+
+    viewer.open(czi_file, plugin="psf-analysis-CFIM")
+
 def launch_napari():
     """Launch Napari."""
     try:
@@ -26,16 +34,15 @@ def launch_napari():
         exit(1)
 
 
-def launch_napari_dev_mode():
+
+def launch_napari_dev_mode(czi_file=None):
     """
     Launch Napari in dev mode:
-    - Currently a stub, just opens the plugin
+    - czi: loads a .czi file with the given path
     """
     print("Launching Napari in dev mode...")
-
-
-    # Launch Napari viewer
     viewer = napari.Viewer()
+
 
     # Activate your plugin (psf_analysis_CFIM)
     try:
@@ -43,6 +50,15 @@ def launch_napari_dev_mode():
         print("Activated plugin 'psf-analysis-CFIM'.")
     except ValueError:
         print("Plugin 'psf-analysis-CFIM' not found or failed to load.")
+
+    # Improvement would be a better event here. Can't find a better one
+    if czi_file:
+        def on_status_change(event):
+            viewer.events.disconnect(on_status_change)
+            print(f"Given: {event.value}")
+            load_czi_file(viewer, czi_file)
+
+        viewer.events.connect(on_status_change)
 
     napari.run()
 
@@ -53,6 +69,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--dev", action="store_true", help="Launch Napari in 'dev mode' for testing purposes."
     )
+    parser.add_argument(
+        "--czi", type=str, help="Path to a .czi file to load into Napari."
+    )
 
     args = parser.parse_args()
 
@@ -60,7 +79,7 @@ if __name__ == "__main__":
     # Launch the appropriate mode
     if args.dev:
         # Run the custom dev mode setup
-        launch_napari_dev_mode()
+        launch_napari_dev_mode(args.czi)
     else:
         # Install the plugin
         install_plugin()
