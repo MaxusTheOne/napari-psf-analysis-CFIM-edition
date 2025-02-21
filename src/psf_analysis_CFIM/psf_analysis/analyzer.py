@@ -42,7 +42,9 @@ class Analyzer:
             bead = self._beads[self._index]
             psf = PSF(image=bead)
 
+            print(f"(1)Bead crop corner: {bead.get_corner_coordinates()}")
             psf.analyze()
+            print(f"(2)Bead crop corner: {bead.get_corner_coordinates()}")
             results = psf.get_summary_dict()
             self._add(
                 self._extend_result_table(bead, results),

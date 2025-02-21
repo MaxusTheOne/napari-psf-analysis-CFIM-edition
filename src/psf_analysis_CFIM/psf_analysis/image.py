@@ -12,17 +12,21 @@ class CalibratedImage(BaseModel):
     class Config:
         arbitrary_types_allowed = True
 
+    def shape(self):
+        return self.data.shape
+
+    def get_corner_coordinates(self):
+        return tuple(self.offset)
+
 # TODO: Make Calibrated3DImage.mean() method
 class Calibrated3DImage(CalibratedImage):
     offset: Tuple[int, int, int] = (0,) * 3
 
-    @validator("data")
+    @field_validator("data")
     def check_ndims(data: ArrayLike):
         assert data.ndim == 3, "Data must be 3D."
         return data
 
-    def shape(self):
-        return self.data.shape
 
     class Config:
         arbitrary_types_allowed = True

@@ -27,4 +27,5 @@ This edition includes the following additional features:
 - **CZI Reader**: Adds support for reading CZI image files.
 - **Auto-Filling of Plugin Parameters**: Automatically populates parameters for the plugin.
 - **Auto Analysis of Image for PSF**: Performs automatic image analysis for PSFs.
+- **Bead Detection**: Detects beads in the image.
 - Might crash on images other than CZI... ups.

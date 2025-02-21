@@ -5,6 +5,7 @@ import numpy as np
 from psf_analysis_CFIM.psf_analysis.image import Calibrated3DImage
 from psf_analysis_CFIM.psf_analysis.sample import Sample, YXSample, ZSample, ZYXSample
 from psf_analysis_CFIM.psf_analysis.utils import compute_cov_matrix
+from skimage.measure import centroid
 
 
 class Estimator:
@@ -102,8 +103,8 @@ class ZYXEstimator(Estimator):
 
     def get_centroid(self) -> Tuple[float, float, float]:
         if self._centroid is None:
-            from skimage.measure import centroid
 
+            print(self.sample.image.spacing)
             uncalibrated_centroid = centroid(self.sample.image.data)
             self._centroid = (
                 uncalibrated_centroid[0] * self.sample.image.spacing[0],

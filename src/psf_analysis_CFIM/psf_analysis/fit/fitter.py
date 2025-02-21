@@ -23,7 +23,7 @@ from psf_analysis_CFIM.psf_analysis.records import (
 )
 from psf_analysis_CFIM.psf_analysis.sample import YXSample, ZSample, ZYXSample
 from psf_analysis_CFIM.psf_analysis.utils import fwhm
-
+from scipy.optimize import curve_fit
 
 class ZFitter:
     """
@@ -174,28 +174,37 @@ class ZYXFitter:
         )
 
     def _fit_gaussian(self) -> Tuple[ArrayLike, ArrayLike]:
-        from scipy.optimize import curve_fit
 
-        return curve_fit(
+
+        # Calculate the center of the image slice
+        image_shape = self._estimator.sample.image.data.shape
+        center_coordinates = [dim_size // 2 for dim_size in image_shape]
+        curve_fit_params = [
+            self._estimator.get_background(),
+            self._estimator.get_amplitude(),
+            *self._estimator.get_centroid(),
+            self._estimator.get_sigmas()[0] ** 2,
+            0,
+            0,
+            self._estimator.get_sigmas()[1] ** 2,
+            0,
+            self._estimator.get_sigmas()[2] ** 2,
+        ]
+        print(f"func params: {curve_fit_params}")
+        print(f"image shape: {image_shape}")
+        optimal_params, covariance = curve_fit(
             evaluate_3d_gaussian,
             xdata=self._estimator.sample.get_ravelled_coordinates(),
             ydata=self._estimator.sample.image.data.ravel(),
-            p0=[
-                self._estimator.get_background(),
-                self._estimator.get_amplitude(),
-                *self._estimator.get_centroid(),
-                self._estimator.get_sigmas()[0] ** 2,
-                0,
-                0,
-                self._estimator.get_sigmas()[1] ** 2,
-                0,
-                self._estimator.get_sigmas()[2] ** 2,
-            ],
+            p0= curve_fit_params
+
         )
+        return optimal_params, covariance
 
     def fit(self) -> ZYXFitRecord:
-        optimal_parameters, covariance = self._fit_gaussian()
-
+        gaussian = self._fit_gaussian()
+        optimal_parameters, covariance = gaussian
+        print(f"(1.3.1)Bead crop corner: {self.image.get_corner_coordinates()}")
         principal_components = self._get_principal_components(optimal_parameters)
         error = np.abs(np.sqrt(np.diag(covariance)))
 

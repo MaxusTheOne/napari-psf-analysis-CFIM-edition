@@ -153,15 +153,15 @@ class PsfAnalysis(QWidget):
 
         beads= self.bead_finder.find_beads()
 
-        self._point_list_to_viewer(beads, scale)
+        self._point_list_to_viewer(beads, scale, "Found Beads")
 
 
 
     def _img_to_viewer(self, image, scale=None, name="BeadTest"):
         self._viewer.add_image(image, name=name, scale=scale)
 
-    def _point_list_to_viewer(self, points, scale=None):
-        self._viewer.add_points(points, name="Beads", scale=scale)
+    def _point_list_to_viewer(self, points, scale=None, name="Points"):
+        self._viewer.add_points(points, name=name, scale=scale)
 
     def _add_save_dialog(self):
         pane = QGroupBox(parent=self)
@@ -437,8 +437,8 @@ class PsfAnalysis(QWidget):
         self.airy_unit.setValue(round(float(metadata["AiryUnit"]), 2))
         self.excitation.setValue(int(metadata["Excitation"]))
         self.emission.setValue(int(metadata["Emission"]))
-        self.xy_pixelsize.setValue(round(float(layer.scale[1])*1000,2))
-        self.z_spacing.setValue(round(float(layer.scale[0])*1000,2))
+        self.xy_pixelsize.setValue(round(float(layer.scale[1]),2))
+        self.z_spacing.setValue(round(float(layer.scale[0]),2))
 
     def _create_bead_finder(self, layer):
         if self.bead_finder is None:
