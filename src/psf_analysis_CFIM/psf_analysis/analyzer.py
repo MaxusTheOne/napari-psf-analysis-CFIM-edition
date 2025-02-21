@@ -3,6 +3,7 @@ from typing import Optional, Tuple
 
 import numpy as np
 import pandas as pd
+from botocore.model import InvalidShapeError
 from numpy._typing import ArrayLike
 
 from psf_analysis_CFIM.psf_analysis.extract.BeadExtractor import BeadExtractor
@@ -39,21 +40,23 @@ class Analyzer:
                 print(f"Bead shape: {bead.data.shape}")
             self._debug = 0
         if self._index < len(self._beads):
-            bead = self._beads[self._index]
-            psf = PSF(image=bead)
-
-            print(f"(1)Bead crop corner: {bead.get_corner_coordinates()}")
-            psf.analyze()
-            print(f"(2)Bead crop corner: {bead.get_corner_coordinates()}")
-            results = psf.get_summary_dict()
-            self._add(
-                self._extend_result_table(bead, results),
-                psf.get_summary_image(
-                    date=self._parameters.date,
-                    version=self._parameters.version,
-                    dpi=self._parameters.dpi,
-                ),
-            )
+            try:
+                bead = self._beads[self._index]
+                if 0 in bead.data.shape:
+                    raise InvalidShapeError("Bead has invalid shape")
+                psf = PSF(image=bead)
+                psf.analyze()
+                results = psf.get_summary_dict()
+                self._add(
+                    self._extend_result_table(bead, results),
+                    psf.get_summary_image(
+                        date=self._parameters.date,
+                        version=self._parameters.version,
+                        dpi=self._parameters.dpi,
+                    ),
+                )
+            except InvalidShapeError as e:
+                print(f"Error analyzing bead: {e}")
             self._index += 1
             return self._index
         else:
@@ -77,10 +80,14 @@ class Analyzer:
 
     def get_averaged_bead(self):
         """Average the raw bead data before analysis."""
-        raw_beads = [bead.data for bead in self.get_raw_beads()]
-        averaged_bead_data = np.mean(raw_beads, axis=0).astype(np.int32)
-        averaged_bead = Calibrated3DImage(data=averaged_bead_data, spacing=self._parameters.spacing)
-        return averaged_bead
+        try:
+            raw_beads = [bead.data for bead in self.get_raw_beads()]
+            averaged_bead_data = np.mean(raw_beads, axis=0).astype(np.int32)
+            print(f"Averaged bead shape: {averaged_bead_data.shape}")
+            averaged_bead = Calibrated3DImage(data=averaged_bead_data, spacing=self._parameters.spacing)
+            return averaged_bead
+        except AttributeError as e:
+            print(f"Error averaging bead data: {e}")
 
     def _extend_result_table(self, bead, results):
         extended_results = results.copy()

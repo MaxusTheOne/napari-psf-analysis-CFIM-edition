@@ -669,20 +669,17 @@ class PSF:
         z_fitter = ZFitter(image=self.image)
         yx_fitter = YXFitter(image=self.image)
         zyx_fitter = ZYXFitter(image=self.image)
-        print(f"(1.1)Bead crop corner: {self.image.get_corner_coordinates()}")
+
         z_fit_record: ZFitRecord = z_fitter.fit()
-        print(f"(1.2)Bead crop corner: {self.image.get_corner_coordinates()}")
         yx_fit_record: YXFitRecord = yx_fitter.fit()
-        print(f"(1.3)Bead crop corner: {self.image.get_corner_coordinates()}")
         zyx_fit_record: ZYXFitRecord = zyx_fitter.fit()
-        print(f"(1.4)Bead crop corner: {self.image.get_corner_coordinates()}")
 
         self.psf_record = PSFRecord(
             z_fit=z_fit_record,
             yx_fit=yx_fit_record,
             zyx_fit=zyx_fit_record,
         )
-        print(f"(1.5)Bead crop corner: {self.image.get_corner_coordinates()}")
+
 
     def get_record(self) -> PSFRecord:
         return self.psf_record

@@ -41,10 +41,10 @@ class ZEstimator(Estimator):
 
     def get_centroid(self) -> float:
         if self._centroid is None:
-            from skimage.measure import centroid
 
+            abs_cords = self.sample.image.get_corner_coordinates()
             self._centroid = (
-                centroid(self.sample.image.data)[0] * self.sample.image.spacing[0]
+                    (centroid(self.sample.image.data)[0] + abs_cords[0]) * self.sample.image.spacing[0]
             )
         return self._centroid
 
@@ -71,7 +71,8 @@ class YXEstimator(Estimator):
         if self._centroid is None:
             from skimage.measure import centroid
 
-            uncalibrated_centroid = centroid(self.sample.image.data)
+            abs_cords = self.sample.image.get_corner_coordinates()
+            uncalibrated_centroid = centroid(self.sample.image.data) + abs_cords
             self._centroid = (
                 uncalibrated_centroid[0] * self.sample.image.spacing[0],
                 uncalibrated_centroid[1] * self.sample.image.spacing[1],
@@ -103,9 +104,8 @@ class ZYXEstimator(Estimator):
 
     def get_centroid(self) -> Tuple[float, float, float]:
         if self._centroid is None:
-
-            print(self.sample.image.spacing)
-            uncalibrated_centroid = centroid(self.sample.image.data)
+            abs_cords = self.sample.image.get_corner_coordinates()
+            uncalibrated_centroid = (centroid(self.sample.image.data)) + abs_cords
             self._centroid = (
                 uncalibrated_centroid[0] * self.sample.image.spacing[0],
                 uncalibrated_centroid[1] * self.sample.image.spacing[1],

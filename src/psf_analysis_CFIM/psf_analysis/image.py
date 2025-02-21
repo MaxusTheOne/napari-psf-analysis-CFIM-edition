@@ -36,7 +36,7 @@ class Calibrated2DImage(CalibratedImage):
     offset: Tuple[int, int] = (0,) * 2
 
     @field_validator("data")
-    def check_ndims(cls, data: ArrayLike):
+    def check_ndims(data: ArrayLike):
         assert data.ndim == 2, "Data must be 2D."
         return data
 
@@ -47,7 +47,7 @@ class Calibrated2DImage(CalibratedImage):
 class Calibrated1DImage(CalibratedImage):
     offset: Tuple[int] = (0,)
 
-    @validator("data")
+    @field_validator("data")
     def check_ndims(data: ArrayLike):
         assert data.ndim == 1, "Data must be 1D."
         return data
