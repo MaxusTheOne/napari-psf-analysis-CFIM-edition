@@ -8,7 +8,7 @@ class BeadFinder():
         self.image = image
         self.scale = scale
 
-        self._border = 10
+        self._border = 20
 
     def get_image(self):
         return self.image

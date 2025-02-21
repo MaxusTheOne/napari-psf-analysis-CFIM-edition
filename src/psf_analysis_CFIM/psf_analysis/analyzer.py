@@ -25,7 +25,7 @@ class Analyzer:
         self._results = None
         self._result_figures = {}
         self._index = 0
-        self._debug = 1
+        self._debug = 0
 
     def __iter__(self):
         return self
@@ -35,12 +35,11 @@ class Analyzer:
 
     def __next__(self):
         if self._debug:
-            for bead, index in self._beads:
-                print(f"Bead n{index} shape: {bead.data.shape}")
+            for bead in self._beads:
+                print(f"Bead shape: {bead.data.shape}")
             self._debug = 0
         if self._index < len(self._beads):
             bead = self._beads[self._index]
-            print(f"Bead shape: {bead.data.shape}")
             psf = PSF(image=bead)
 
             psf.analyze()

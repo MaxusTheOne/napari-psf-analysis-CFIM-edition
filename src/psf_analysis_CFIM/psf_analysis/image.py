@@ -21,6 +21,9 @@ class Calibrated3DImage(CalibratedImage):
         assert data.ndim == 3, "Data must be 3D."
         return data
 
+    def shape(self):
+        return self.data.shape
+
     class Config:
         arbitrary_types_allowed = True
 

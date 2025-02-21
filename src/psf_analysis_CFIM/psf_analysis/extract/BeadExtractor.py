@@ -11,6 +11,7 @@ class BeadExtractor:
     _image: Calibrated3DImage = None
     _patch_size: Tuple[int, int, int] = None
     _margins: ArrayLike = None
+    _debug: bool = False
 
     def __init__(self, image: Calibrated3DImage, patch_size: Tuple[int, int, int]):
         self._image = image
@@ -22,6 +23,10 @@ class BeadExtractor:
         lower_bounds = self._margins / 2
         upper_bounds = np.array(self._image.data.shape) - self._margins / 2
 
+        if self._debug:
+            print(f"Lower bounds: {lower_bounds}")
+            print(f"Upper bounds: {upper_bounds}")
+            self._debug = False
         out_of_bounds = np.any(point < lower_bounds) or np.any(point >= upper_bounds)
 
         if out_of_bounds:
@@ -43,9 +48,7 @@ class BeadExtractor:
                 closest_peak = self._find_closest_peak(point)
                 bead_data = self._extract_rough_crop(closest_peak)
                 bead = Calibrated3DImage(data=bead_data, spacing=self._image.spacing)
-                bead.offset = tuple(
-                    np.array(closest_peak) - np.array(bead_data.shape) // 2
-                )
+                bead.offset = tuple( np.array(closest_peak) - np.array(bead_data.shape) // 2 )
                 beads.append(bead)
 
         return beads
