@@ -8,7 +8,8 @@ class BeadFinder():
         self.image = image
         self.scale = scale
 
-        self._border = 20
+        self._debug = True
+        self._border = 5
 
     def get_image(self):
         return self.image
@@ -28,6 +29,7 @@ class BeadFinder():
 
     def _find_bead_positions(self, xy_beads):
         bead_pos = []
+        discarded_beads = []
         for (y, x) in xy_beads:
             z_profile = self.image[:, y, x]
 
@@ -36,16 +38,21 @@ class BeadFinder():
             z = np.argmax(z_profile_median)
             if 0 + self._border < z < self.image.shape[0] - self._border:
                 bead_pos.append((z, y, x))
-        return bead_pos
+            else:
+                discarded_beads.append((z, y, x))
+
+        return bead_pos, discarded_beads
 
 
     def find_beads(self):
         image = self._max_projection()
         image = self._median_filter(image)
         xy_beads = self._maxima(image)
-        print("Found xy_beads:", len(xy_beads))
-        beads = self._find_bead_positions(xy_beads)
-        print("Found beads:", len(beads))
+        beads, discarded_beads = self._find_bead_positions(xy_beads)
+        if self._debug:
+            print("Found xy_beads:", len(xy_beads))
+            print("Found beads:", len(beads))
+            print("Discarded beads:", len(discarded_beads))
         return beads
 
     def close(self):

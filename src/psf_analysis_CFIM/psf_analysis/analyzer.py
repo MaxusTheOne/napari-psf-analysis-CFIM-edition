@@ -21,12 +21,13 @@ class Analyzer:
             ),
             patch_size=parameters.patch_size,
         )
+        self._invalid_beads_index = []
         self._beads = bead_extractor.extract_beads(points=self._parameters.point_data)
 
         self._results = None
         self._result_figures = {}
         self._index = 0
-        self._debug = 0
+        self._debug = 1
 
     def __iter__(self):
         return self
@@ -36,14 +37,14 @@ class Analyzer:
 
     def __next__(self):
         if self._debug:
-            for bead in self._beads:
-                print(f"Bead shape: {bead.data.shape}")
+            print(f"Bead amount: {len(self._beads)}")
             self._debug = 0
         if self._index < len(self._beads):
             try:
                 bead = self._beads[self._index]
                 if 0 in bead.data.shape:
-                    raise InvalidShapeError("Bead has invalid shape")
+                    self._invalid_beads_index.append(self._index)
+                    raise InvalidShapeError(f"Bead has invalid shape: {bead.data.shape}")
                 psf = PSF(image=bead)
                 psf.analyze()
                 results = psf.get_summary_dict()
@@ -78,12 +79,17 @@ class Analyzer:
         """Return the raw data of the beads before analysis."""
         return self._beads
 
+    def get_raw_beads_filtered(self):
+        """ Return the raw data of the beads before analysis, but filtered for found invalid shapes."""
+        beads = [bead for i, bead in enumerate(self._beads) if i not in self._invalid_beads_index]
+        return beads
+
     def get_averaged_bead(self):
         """Average the raw bead data before analysis."""
         try:
-            raw_beads = [bead.data for bead in self.get_raw_beads()]
+            raw_beads = [bead.data for bead in self.get_raw_beads_filtered()]
+            print(f"Raw bead shapes: {[bead.shape for bead in raw_beads]}")
             averaged_bead_data = np.mean(raw_beads, axis=0).astype(np.int32)
-            print(f"Averaged bead shape: {averaged_bead_data.shape}")
             averaged_bead = Calibrated3DImage(data=averaged_bead_data, spacing=self._parameters.spacing)
             return averaged_bead
         except AttributeError as e:
@@ -117,7 +123,6 @@ class Analyzer:
         centroid = np.round([result["x_mu"], result["y_mu"], result["z_mu"]], 1)
         bead_name = "{}_Bead_X{}_Y{}_Z{}".format(result["image_name"], *centroid)
         unique_bead_name = self._make_unique(bead_name)
-
         self._result_figures[unique_bead_name] = summary_fig
         self._results["PSF_path"].append(join(unique_bead_name + ".png"))
 
@@ -157,20 +162,21 @@ class Analyzer:
 
         Parameters
         ----------
-        bead_img_scale : scaling of the whole bead image
+        bead_img_scale : scaling of the whole bead image in (Z, Y, X) nm/px
         bead_img_shape : shape of the whole bead image
 
         Returns
         -------
         stack of all summary figures
-        scaling to display them with napari
+        scaling to display them with napari -> Literally just the given scaling??
         """
         if len(self._result_figures) > 0:
             measurement_stack = self._build_figure_stack()
-
+            print(f"measurement_scale args: {bead_img_scale}, {bead_img_shape}, {measurement_stack.shape}")
             measurement_scale = self._compute_figure_scaling(
                 bead_img_scale, bead_img_shape, measurement_stack
             )
+            print(f"get_summ, scale: {measurement_scale}")
             return measurement_stack, measurement_scale
         else:
             return None, None
@@ -183,6 +189,7 @@ class Analyzer:
                 bead_scale[1] / measurement_stack.shape[1] * bead_shape[1],
             ]
         )
+        print(f"Bead scale from {bead_scale} to {measurement_scale}")
         return measurement_scale
 
     def _build_figure_stack(self):

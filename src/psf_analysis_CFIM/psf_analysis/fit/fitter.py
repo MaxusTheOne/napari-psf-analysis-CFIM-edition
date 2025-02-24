@@ -1,9 +1,11 @@
+import traceback
 from typing import Tuple
 
 import numpy as np
 from fontTools.misc.arrayTools import pointsInRect
 from numpy._typing import ArrayLike
 
+from psf_analysis_CFIM.plot_comparison import plot_point_in_image, compare_by_index, plot_points_in_image
 from psf_analysis_CFIM.psf_analysis.fit.estimator import (
     YXEstimator,
     ZEstimator,
@@ -33,6 +35,7 @@ class ZFitter:
 
     image: Calibrated3DImage
     _estimator: ZEstimator
+    _debug: bool = False
 
     def __init__(self, image: Calibrated3DImage):
         self.image = image
@@ -49,20 +52,24 @@ class ZFitter:
         )
 
     def _fit_gaussian(self) -> Tuple[ArrayLike, ArrayLike]:
+        point_params = [
+                    self._estimator.get_background(),
+                    self._estimator.get_amplitude(),
+                    self._estimator.get_centroid_abs(),
+                    self._estimator.get_sigma(),
+                ]
         try:
             return curve_fit(
                 evaluate_1d_gaussian,
                 xdata=self._estimator.sample.get_ravelled_coordinates(),
                 ydata=self._estimator.sample.image.data,
-                p0=[
-                    self._estimator.get_background(),
-                    self._estimator.get_amplitude(),
-                    self._estimator.get_centroid(),
-                    self._estimator.get_sigma(),
-                ],
+                p0=point_params,
             )
         except RuntimeError as e:
             print(f"Error fitting gaussian with Z: {e}")
+            plot_points_in_image(self._estimator.sample.image.data,[[ self._estimator.get_centroid_abs()], [self._estimator.get_centroid()]])
+            print("Traceback")
+            traceback.print_exc()
             raise e
 
     def fit(self) -> ZFitRecord:
@@ -126,7 +133,8 @@ class YXFitter:
             )
         except RuntimeError as e:
             print(f"Error fitting gaussian with YX: {e}")
-            print("point_args: ", point_args)
+            print("Traceback")
+            traceback.print_exc()
             raise e
 
     def _get_principal_components(
@@ -171,6 +179,7 @@ class YXFitter:
 class ZYXFitter:
     image: Calibrated3DImage = None
     _estimator: ZYXEstimator
+    _debug: bool = False
 
     def __init__(self, image: Calibrated3DImage):
         self.image = image
@@ -203,8 +212,15 @@ class ZYXFitter:
             )
         except RuntimeError as e:
             print(f"Error fitting gaussian: {e}")
-            print(f"curve_fit_params: {curve_fit_params}")
+            compare_by_index(curve_fit_params, optimal_params)
+            print("Traceback")
+            traceback.print_exc()
             raise e
+        if self._debug:
+
+            compare_by_index(curve_fit_params, optimal_params)
+            self._debug = False
+
         return optimal_params, covariance
 
     def fit(self) -> ZYXFitRecord:

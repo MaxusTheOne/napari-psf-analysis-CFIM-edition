@@ -42,10 +42,18 @@ class ZEstimator(Estimator):
     def get_centroid(self) -> float:
         if self._centroid is None:
 
+            self._centroid = (
+                    (centroid(self.sample.image.data)[0]) * self.sample.image.spacing[0]
+            )
+        return self._centroid
+
+    def get_centroid_abs(self) -> float:
+        if self._centroid is None:
             abs_cords = self.sample.image.get_corner_coordinates()
             self._centroid = (
-                    (centroid(self.sample.image.data)[0] + abs_cords[0]) * self.sample.image.spacing[0]
+                (centroid(self.sample.image.data)[0] + abs_cords[0]) * self.sample.image.spacing[0]
             )
+
         return self._centroid
 
     def get_sigma(self) -> float:
@@ -72,7 +80,7 @@ class YXEstimator(Estimator):
             from skimage.measure import centroid
 
             abs_cords = self.sample.image.get_corner_coordinates()
-            uncalibrated_centroid = centroid(self.sample.image.data) + abs_cords
+            uncalibrated_centroid = centroid(self.sample.image.data)
             self._centroid = (
                 uncalibrated_centroid[0] * self.sample.image.spacing[0],
                 uncalibrated_centroid[1] * self.sample.image.spacing[1],
@@ -105,7 +113,19 @@ class ZYXEstimator(Estimator):
     def get_centroid(self) -> Tuple[float, float, float]:
         if self._centroid is None:
             abs_cords = self.sample.image.get_corner_coordinates()
-            uncalibrated_centroid = (centroid(self.sample.image.data)) + abs_cords
+            uncalibrated_centroid = (centroid(self.sample.image.data))
+            self._centroid = (
+                uncalibrated_centroid[0] * self.sample.image.spacing[0],
+                uncalibrated_centroid[1] * self.sample.image.spacing[1],
+                uncalibrated_centroid[2] * self.sample.image.spacing[2],
+            )
+
+        return self._centroid
+
+    def get_centroid_abs(self) -> Tuple[float, float, float]:
+        if self._centroid is None:
+            abs_cords = self.sample.image.get_corner_coordinates()
+            uncalibrated_centroid = (centroid(self.sample.image.data) + abs_cords)
             self._centroid = (
                 uncalibrated_centroid[0] * self.sample.image.spacing[0],
                 uncalibrated_centroid[1] * self.sample.image.spacing[1],

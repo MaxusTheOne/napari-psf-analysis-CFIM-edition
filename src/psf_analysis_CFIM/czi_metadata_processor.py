@@ -31,9 +31,8 @@ def extract_key_metadata(reader):
         dict: A dictionary with allowed keys for Napari and a nested custom metadata.
     """
     # Start with keys that Napari is expecting.
-    scaling = [i * 1000 for i in reader.physical_pixel_sizes]
     metadata = {
-        "scale": scaling,
+        "scale": reader.physical_pixel_sizes,
         "units": "nanometer"
         # You can add any other top-level keys Napari supports, e.g. "name", "colormap", etc.
     }

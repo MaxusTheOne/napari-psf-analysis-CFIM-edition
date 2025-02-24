@@ -673,7 +673,6 @@ class PSF:
         z_fit_record: ZFitRecord = z_fitter.fit()
         yx_fit_record: YXFitRecord = yx_fitter.fit()
         zyx_fit_record: ZYXFitRecord = zyx_fitter.fit()
-
         self.psf_record = PSFRecord(
             z_fit=z_fit_record,
             yx_fit=yx_fit_record,

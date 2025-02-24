@@ -161,7 +161,7 @@ class PsfAnalysis(QWidget):
         self._viewer.add_image(image, name=name, scale=scale)
 
     def _point_list_to_viewer(self, points, scale=None, name="Points"):
-        self._viewer.add_points(points, name=name, scale=scale)
+        self._viewer.add_points(points, name=name, scale=scale, face_color="cyan")
 
     def _add_save_dialog(self):
         pane = QGroupBox(parent=self)
@@ -435,10 +435,10 @@ class PsfAnalysis(QWidget):
         self.objective_id.setText(metadata["ObjectiveID"])
         self.na.setValue(float(metadata["NA"]))
         self.airy_unit.setValue(round(float(metadata["AiryUnit"]), 2))
-        self.excitation.setValue(int(metadata["Excitation"]))
-        self.emission.setValue(int(metadata["Emission"]))
-        self.xy_pixelsize.setValue(round(float(layer.scale[1]),2))
-        self.z_spacing.setValue(round(float(layer.scale[0]),2))
+        self.excitation.setValue(round(float(metadata["Excitation"]),2))
+        self.emission.setValue(round(float(metadata["Emission"]),2))
+        self.xy_pixelsize.setValue(round(float(layer.scale[1])*1000,2))
+        self.z_spacing.setValue(round(float(layer.scale[0])*1000,2))
 
     def _create_bead_finder(self, layer):
         if self.bead_finder is None:
@@ -508,6 +508,8 @@ class PsfAnalysis(QWidget):
         def _on_done(result):
             if result is not None:
                 measurement_stack, measurement_scale = result
+                print(f"measurement_scale: {measurement_scale}")
+                print(f"measurement_shape: {measurement_stack.shape}")
                 self._viewer.add_image(
                     measurement_stack,
                     name="Analyzed Beads",
@@ -536,7 +538,6 @@ class PsfAnalysis(QWidget):
         def display_averaged_measurement_stack(viewer, averaged_measurement, measurement_scale):
             """Display the averaged measurement stack in the viewer."""
             averaged_measurement = averaged_measurement[np.newaxis, ...]
-
             viewer.add_image(
                 averaged_measurement,
                 name="Averaged PSF",
@@ -574,7 +575,8 @@ class PsfAnalysis(QWidget):
                     self.cbox_img.currentText()
                 ].data.shape,
             )
-
+            print(f"measurement_stack shape: {measurement_stack.shape}")
+            print(f"measurement_scale: {measurement_scale}")
             if measurement_stack is not None:
                 return measurement_stack, measurement_scale
 
