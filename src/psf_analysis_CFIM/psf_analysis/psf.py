@@ -6,6 +6,7 @@ from matplotlib_scalebar.scalebar import ScaleBar
 from mpl_toolkits.mplot3d.axis3d import Axis
 from numpy._typing import ArrayLike
 
+from psf_analysis_CFIM.error_display_widget import report_error
 from psf_analysis_CFIM.psf_analysis.fit.fitter import YXFitter, ZFitter, ZYXFitter
 from psf_analysis_CFIM.psf_analysis.image import Calibrated2DImage, Calibrated3DImage
 from psf_analysis_CFIM.psf_analysis.records import (
@@ -661,6 +662,7 @@ class PSFRenderEngine:
 class PSF:
     image: Calibrated3DImage = None
     psf_record: PSFRecord = None
+    error = False
 
     def __init__(self, image: Calibrated3DImage):
         self.image = image
@@ -669,15 +671,19 @@ class PSF:
         z_fitter = ZFitter(image=self.image)
         yx_fitter = YXFitter(image=self.image)
         zyx_fitter = ZYXFitter(image=self.image)
-
-        z_fit_record: ZFitRecord = z_fitter.fit()
-        yx_fit_record: YXFitRecord = yx_fitter.fit()
-        zyx_fit_record: ZYXFitRecord = zyx_fitter.fit()
-        self.psf_record = PSFRecord(
-            z_fit=z_fit_record,
-            yx_fit=yx_fit_record,
-            zyx_fit=zyx_fit_record,
-        )
+        try:
+            z_fit_record: ZFitRecord = z_fitter.fit()
+            yx_fit_record: YXFitRecord = yx_fitter.fit()
+            zyx_fit_record: ZYXFitRecord = zyx_fitter.fit()
+        except ValueError as e:
+            print(f"Error fitting point: {self.image.get_corner_coordinates()}")
+            self.error = True
+        else:
+            self.psf_record = PSFRecord(
+                z_fit=z_fit_record,
+                yx_fit=yx_fit_record,
+                zyx_fit=zyx_fit_record,
+            )
 
 
     def get_record(self) -> PSFRecord:

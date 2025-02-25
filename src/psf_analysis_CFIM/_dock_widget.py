@@ -31,7 +31,7 @@ from qtpy.QtWidgets import (
 from skimage.io import imsave
 
 from psf_analysis_CFIM.bead_finder_CFIM import BeadFinder
-from psf_analysis_CFIM.error_display_widget import ErrorDisplayWidget
+from psf_analysis_CFIM.error_display_widget import ErrorDisplayWidget, report_error
 from psf_analysis_CFIM.psf_analysis.analyzer import Analyzer
 from psf_analysis_CFIM.psf_analysis.image_analysis import save_statistics_to_file, analyze_image
 from psf_analysis_CFIM.psf_analysis.parameters import PSFAnalysisInputs
@@ -142,26 +142,29 @@ class PsfAnalysis(QWidget):
         pane.layout().addRow(self.find_beads_button)
         self.analyse_img_button = QPushButton("Analyse Image")
         self.analyse_img_button.setEnabled(True)
-        self.analyse_img_button.clicked.connect(self._create_statistic_and_validate_image)
+        self.analyse_img_button.clicked.connect(self._test_error)
         pane.layout().addRow(self.analyse_img_button)
-        self.error_widget = ErrorDisplayWidget(parent=self)
+        self.error_widget = ErrorDisplayWidget(parent=self, viewer=self._viewer)
         pane.layout().addRow(self.error_widget)
         self.layout().addWidget(pane)
 
+    def _test_error(self):
+        report_error(message="This is a test error message.", point=(2,2))
+
     def find_beads(self):
-        scale = self.bead_finder.get_scale()
+        scale= self.bead_finder.get_scale()
 
         beads= self.bead_finder.find_beads()
 
-        self._point_list_to_viewer(beads, scale, "Found Beads")
+        self._point_list_to_viewer(beads, scale, "Found Beads", size=2)
 
 
 
     def _img_to_viewer(self, image, scale=None, name="BeadTest"):
         self._viewer.add_image(image, name=name, scale=scale)
 
-    def _point_list_to_viewer(self, points, scale=None, name="Points"):
-        self._viewer.add_points(points, name=name, scale=scale, face_color="cyan")
+    def _point_list_to_viewer(self, points, scale=None, name="Points", size=10):
+        self._viewer.add_points(points, size=size,scale=scale, name=name,  face_color="cyan")
 
     def _add_save_dialog(self):
         pane = QGroupBox(parent=self)
@@ -420,7 +423,6 @@ class PsfAnalysis(QWidget):
             self.current_img_index = self.cbox_img.currentIndex()
             for layer in self._viewer.layers:
                 if str(layer) == self.cbox_img.itemText(self.cbox_img.currentIndex()):
-                    print(layer.source.path)
                     self.date.setDate(
                         datetime.fromtimestamp(getctime(layer.source.path))
                     )

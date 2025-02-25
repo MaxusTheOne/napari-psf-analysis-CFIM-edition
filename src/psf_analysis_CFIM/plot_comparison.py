@@ -52,3 +52,54 @@ def compare_by_index(list1, list2):
     plt.legend()
     plt.grid(True)
     plt.show()
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
+
+def plot_correlation_matrix(corr_matrix):
+    """
+    Plots a heatmap of the correlation matrix with the given variable names.
+
+    Parameters:
+    - corr_matrix: 2D array-like, the correlation matrix to plot.
+    - var_names: list of str, the variable names corresponding to the matrix dimensions.
+    """
+    var_names = [
+        'zyx_bg', 'zyx_amp', 'zyx_z_mu', 'zyx_y_mu', 'zyx_x_mu',
+        'zyx_czz', 'zyx_czy', 'zyx_czx', 'zyx_cyy', 'zyx_cyx', 'zyx_cxx'
+    ]
+    # Create a DataFrame from the correlation matrix for better labeling
+    df = pd.DataFrame(corr_matrix, index=var_names, columns=var_names)
+
+    # Set up the matplotlib figure
+    plt.figure(figsize=(10, 8))
+
+    # Draw the heatmap with the mask and correct aspect ratio
+    sns.heatmap(df, annot=True, fmt=".2f", cmap='coolwarm', vmin=-1, vmax=1, linewidths=0.5)
+
+    # Add titles and labels
+    plt.title('Correlation Matrix Heatmap', fontsize=16)
+    plt.xticks(rotation=45, ha='right')
+    plt.yticks(rotation=0)
+    plt.tight_layout()
+
+    # Display the plot
+    plt.show()
+
+if __name__ == "__main__":
+    corr_matrix = [
+        [1.000, 0.038, -0.008, 0.001, -0.0003, -0.093, 0.010, -0.006, -0.098, 0.013, -0.098],
+        [0.038, 1.000, -0.053, 0.005, -0.002, -0.412, 0.045, -0.026, -0.456, 0.062, -0.457],
+        [-0.008, -0.053, 1.000, -0.086, 0.049, 0.103, -0.011, 0.006, 0.001, -0.001, 0.001],
+        [0.001, 0.005, -0.086, 1.000, -0.097, -0.009, -0.015, 0.001, 0.002, -0.001, 0.00006],
+        [-0.0003, -0.002, 0.049, -0.097, 1.000, 0.005, 0.001, -0.016, -0.0001, 0.001, -0.001],
+        [-0.093, -0.412, 0.103, -0.009, 0.005, 1.000, -0.109, 0.063, 0.016, -0.007, 0.011],
+        [0.010, 0.045, -0.011, -0.015, 0.001, -0.109, 1.000, -0.099, -0.121, 0.057, -0.008],
+        [-0.006, -0.026, 0.006, 0.001, -0.016, 0.063, -0.099, 1.000, 0.012, -0.090, 0.070],
+        [-0.098, -0.456, 0.001, 0.002, -0.0001, 0.016, -0.121, 0.012, 1.000, -0.136, 0.019],
+        [0.013, 0.062, -0.001, -0.001, 0.001, -0.007, 0.057, -0.090, -0.136, 1.000, -0.137],
+        [-0.098, -0.457, 0.001, 0.00006, -0.001, 0.011, -0.008, 0.070, 0.019, -0.137, 1.000]
+    ]
+
+    plot_correlation_matrix(corr_matrix)

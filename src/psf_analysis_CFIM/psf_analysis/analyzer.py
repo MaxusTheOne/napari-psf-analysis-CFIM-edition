@@ -47,6 +47,8 @@ class Analyzer:
                     raise InvalidShapeError(f"Bead has invalid shape: {bead.data.shape}")
                 psf = PSF(image=bead)
                 psf.analyze()
+                if psf.error:
+                    raise InvalidShapeError(f"Error analyzing bead: {self._index}")
                 results = psf.get_summary_dict()
                 self._add(
                     self._extend_result_table(bead, results),

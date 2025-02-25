@@ -20,8 +20,8 @@ class BeadFinder():
     def _max_projection(self):
         return np.max(self.image, axis=0)
 
-    def _median_filter(self, image):
-        return median_filter(image, size=3)
+    def _median_filter(self, image, size=3):
+        return median_filter(image, size=size)
 
     # TODO: Dynamically find threshold or make it a parameter/config
     def _maxima(self, image):
@@ -33,7 +33,7 @@ class BeadFinder():
         for (y, x) in xy_beads:
             z_profile = self.image[:, y, x]
 
-            z_profile_median = self._median_filter(z_profile)
+            z_profile_median = self._median_filter(z_profile, size=2)
 
             z = np.argmax(z_profile_median)
             if 0 + self._border < z < self.image.shape[0] - self._border:
