@@ -6,6 +6,7 @@ import pandas as pd
 from botocore.model import InvalidShapeError
 from numpy._typing import ArrayLike
 
+from psf_analysis_CFIM.error_display_widget import report_error
 from psf_analysis_CFIM.psf_analysis.extract.BeadExtractor import BeadExtractor
 from psf_analysis_CFIM.psf_analysis.image import Calibrated3DImage
 from psf_analysis_CFIM.psf_analysis.parameters import PSFAnalysisInputs
@@ -27,7 +28,7 @@ class Analyzer:
         self._results = None
         self._result_figures = {}
         self._index = 0
-        self._debug = 1
+        self._debug = 0
 
     def __iter__(self):
         return self
@@ -40,8 +41,8 @@ class Analyzer:
             print(f"Bead amount: {len(self._beads)}")
             self._debug = 0
         if self._index < len(self._beads):
+            bead = self._beads[self._index]
             try:
-                bead = self._beads[self._index]
                 if 0 in bead.data.shape:
                     self._invalid_beads_index.append(self._index)
                     raise InvalidShapeError(f"Bead has invalid shape: {bead.data.shape}")
@@ -59,9 +60,10 @@ class Analyzer:
                     ),
                 )
             except InvalidShapeError as e:
+                report_error("", bead.get_corner_coordinates())
                 print(f"Error analyzing bead: {e}")
             self._index += 1
-            return self._index
+            return self._index + (len(self._parameters.point_data) - len(self._beads))
         else:
             raise StopIteration()
 
@@ -90,7 +92,6 @@ class Analyzer:
         """Average the raw bead data before analysis."""
         try:
             raw_beads = [bead.data for bead in self.get_raw_beads_filtered()]
-            print(f"Raw bead shapes: {[bead.shape for bead in raw_beads]}")
             averaged_bead_data = np.mean(raw_beads, axis=0).astype(np.int32)
             averaged_bead = Calibrated3DImage(data=averaged_bead_data, spacing=self._parameters.spacing)
             return averaged_bead
@@ -174,11 +175,9 @@ class Analyzer:
         """
         if len(self._result_figures) > 0:
             measurement_stack = self._build_figure_stack()
-            print(f"measurement_scale args: {bead_img_scale}, {bead_img_shape}, {measurement_stack.shape}")
             measurement_scale = self._compute_figure_scaling(
                 bead_img_scale, bead_img_shape, measurement_stack
             )
-            print(f"get_summ, scale: {measurement_scale}")
             return measurement_stack, measurement_scale
         else:
             return None, None
@@ -191,7 +190,6 @@ class Analyzer:
                 bead_scale[1] / measurement_stack.shape[1] * bead_shape[1],
             ]
         )
-        print(f"Bead scale from {bead_scale} to {measurement_scale}")
         return measurement_scale
 
     def _build_figure_stack(self):

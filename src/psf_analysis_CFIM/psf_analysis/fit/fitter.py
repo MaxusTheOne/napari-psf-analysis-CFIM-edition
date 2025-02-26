@@ -4,8 +4,8 @@ from typing import Tuple
 import numpy as np
 from fontTools.misc.arrayTools import pointsInRect
 from numpy._typing import ArrayLike
+from pydantic import ValidationError
 
-from psf_analysis_CFIM.error_display_widget import report_error
 from psf_analysis_CFIM.plot_comparison import plot_point_in_image, compare_by_index, plot_points_in_image, \
     plot_correlation_matrix
 from psf_analysis_CFIM.psf_analysis.fit.estimator import (
@@ -61,18 +61,15 @@ class ZFitter:
                     self._estimator.get_sigma(),
                 ]
         try:
+
             fit = curve_fit(
                 evaluate_1d_gaussian,
                 xdata=self._estimator.sample.get_ravelled_coordinates(),
                 ydata=self._estimator.sample.image.data,
                 p0=point_params,
             )
-        except RuntimeError as e:
+        except (RuntimeError, TypeError) as e:
             print(f"Error fitting gaussian with Z: {e}")
-            print(f"Point params: {point_params}")
-            print(f"Image cords: {self.image.get_corner_coordinates()}, z scaling: {self.image.spacing[0]} :Z {self._get_z_sample().image.spacing[0]}")
-            print("Traceback")
-            traceback.print_exc()
         else:
             return fit
 
@@ -137,8 +134,6 @@ class YXFitter:
             )
         except RuntimeError as e:
             print(f"Error fitting gaussian with YX: {e}")
-            print("Traceback")
-            traceback.print_exc()
             raise e
 
     def _get_principal_components(
@@ -219,8 +214,6 @@ class ZYXFitter:
                 raise RuntimeError("Negative mu")
         except RuntimeError as e:
             print(f"Error fitting gaussian: {e}")
-            print("Traceback")
-            traceback.print_exc()
             raise e
 
         return optimal_params, covariance
@@ -233,6 +226,9 @@ class ZYXFitter:
         principal_components = self._get_principal_components(optimal_parameters)
         error = np.abs(np.sqrt(np.diag(covariance)))
         try:
+            if any(optimal_parameters) < 0:
+                print(f"Negative mu found: {optimal_parameters[2:5]}")
+                raise RuntimeError("Negative mu")
             record = ZYXFitRecord(
                 zyx_bg=optimal_parameters[0],
                 zyx_amp=optimal_parameters[1],
@@ -264,11 +260,9 @@ class ZYXFitter:
                 zyx_cxx_sde=error[10],
 
             )
-        except RuntimeError as e:
-            print(f"Error creating record:")
-            print(f"Optimal params: {optimal_parameters}")
-            print("Traceback")
-            traceback.print_exc()
+        except (ValueError, TypeError, ValidationError) as e:
+            print(f"Error creating record: from image with shape {self.image.data.shape}")
+            raise e
         else:
             return record
         # correlation_matrix = covariance / np.outer(error, error)

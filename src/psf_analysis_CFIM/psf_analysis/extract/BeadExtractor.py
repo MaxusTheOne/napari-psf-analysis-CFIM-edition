@@ -4,6 +4,7 @@ import numpy as np
 from napari.utils.notifications import show_info
 from numpy._typing import ArrayLike
 
+from psf_analysis_CFIM.error_display_widget import report_error
 from psf_analysis_CFIM.psf_analysis.image import Calibrated3DImage
 
 
@@ -37,6 +38,7 @@ class BeadExtractor:
                     np.round(point[0]),
                 )
             )
+            report_error("", (point[0], point[1], point[2]))
             return False
         else:
             return True

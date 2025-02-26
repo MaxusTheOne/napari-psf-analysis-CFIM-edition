@@ -5,8 +5,8 @@ import numpy as np
 from matplotlib_scalebar.scalebar import ScaleBar
 from mpl_toolkits.mplot3d.axis3d import Axis
 from numpy._typing import ArrayLike
+from pydantic import ValidationError
 
-from psf_analysis_CFIM.error_display_widget import report_error
 from psf_analysis_CFIM.psf_analysis.fit.fitter import YXFitter, ZFitter, ZYXFitter
 from psf_analysis_CFIM.psf_analysis.image import Calibrated2DImage, Calibrated3DImage
 from psf_analysis_CFIM.psf_analysis.records import (
@@ -60,10 +60,15 @@ class PSFRenderEngine:
         self._ax_3d = self._figure.add_axes(
             [0.55, 0.025, 0.42, 0.42], projection="3d", computed_zorder=False
         )
+
         self._ax_3d_text = self._figure.add_axes([0.525, 0.025, 0.45, 0.45])
         self._ax_3d_text.axis("off")
 
         self._add_axis_annotations()
+
+        import matplotlib.pyplot as plt
+        plt.imshow(self._figure)
+        plt.show()
 
     def _add_axis_annotations(self) -> None:
         ax_X = self._figure.add_axes([0.25, 0.5, 0.02, 0.02])
@@ -549,6 +554,7 @@ class PSFRenderEngine:
             *cv_ell, rstride=4, cstride=4, color="navy", antialiased=True, alpha=0.25
         )
 
+
         self._ax_3d.contour(
             *cv_ell,
             zdir="z",
@@ -675,8 +681,11 @@ class PSF:
             z_fit_record: ZFitRecord = z_fitter.fit()
             yx_fit_record: YXFitRecord = yx_fitter.fit()
             zyx_fit_record: ZYXFitRecord = zyx_fitter.fit()
-        except ValueError as e:
-            print(f"Error fitting point: {self.image.get_corner_coordinates()}")
+        except RuntimeError as e:
+            print(f"Runtime error fitting point: {self.image.get_corner_coordinates()}")
+            self.error = True
+        except (TypeError, ValidationError) as e:
+            print(f"Type error fitting point: {self.image.get_corner_coordinates()}")
             self.error = True
         else:
             self.psf_record = PSFRecord(

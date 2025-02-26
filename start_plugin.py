@@ -55,7 +55,6 @@ def launch_napari_dev_mode(czi_file=None):
     if czi_file:
         def on_status_change(event):
             viewer.events.disconnect(on_status_change)
-            print(f"Given: {event.value}")
             load_czi_file(viewer, czi_file)
 
         viewer.events.connect(on_status_change)

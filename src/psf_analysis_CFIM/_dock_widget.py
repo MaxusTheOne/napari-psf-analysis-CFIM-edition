@@ -31,9 +31,9 @@ from qtpy.QtWidgets import (
 from skimage.io import imsave
 
 from psf_analysis_CFIM.bead_finder_CFIM import BeadFinder
-from psf_analysis_CFIM.error_display_widget import ErrorDisplayWidget, report_error
+from psf_analysis_CFIM.error_display_widget import ErrorDisplayWidget, error_emitter, report_error, report_warning
 from psf_analysis_CFIM.psf_analysis.analyzer import Analyzer
-from psf_analysis_CFIM.psf_analysis.image_analysis import save_statistics_to_file, analyze_image
+from psf_analysis_CFIM.psf_analysis.image_analysis import analyze_image
 from psf_analysis_CFIM.psf_analysis.parameters import PSFAnalysisInputs
 from psf_analysis_CFIM.psf_analysis.psf import PSF
 
@@ -84,7 +84,6 @@ def get_psf_analysis_settings_path():
             return settings["psf_analysis_config_file"]
 
     return None
-
 
 class PsfAnalysis(QWidget):
     def __init__(self, napari_viewer, parent=None):
@@ -149,14 +148,18 @@ class PsfAnalysis(QWidget):
         self.layout().addWidget(pane)
 
     def _test_error(self):
-        report_error(message="This is a test error message.", point=(2,2))
+        report_error("Test Error",(20,20,20))
 
     def find_beads(self):
         scale= self.bead_finder.get_scale()
 
-        beads= self.bead_finder.find_beads()
+        beads, discarded_beads = self.bead_finder.find_beads()
 
-        self._point_list_to_viewer(beads, scale, "Found Beads", size=2)
+        self._point_list_to_viewer(beads, scale, "Found Beads", size=4)
+
+
+        for bead in discarded_beads:
+            report_warning("", point=(bead[0], bead[1], bead[2]))
 
 
 
@@ -447,7 +450,7 @@ class PsfAnalysis(QWidget):
             self.find_beads_button.setEnabled(True)
         else:
             self.bead_finder.close()
-        self.bead_finder = BeadFinder(layer.data, layer.scale)
+        self.bead_finder = BeadFinder(layer.data, layer.scale, bounding_box=(self.psf_z_box_size.value(), self.psf_yx_box_size.value(), self.psf_yx_box_size.value()))
 
 
 
@@ -486,7 +489,6 @@ class PsfAnalysis(QWidget):
             return
 
 
-
         point_data = self._get_point_data()
         if point_data is None:
             return
@@ -510,8 +512,6 @@ class PsfAnalysis(QWidget):
         def _on_done(result):
             if result is not None:
                 measurement_stack, measurement_scale = result
-                print(f"measurement_scale: {measurement_scale}")
-                print(f"measurement_shape: {measurement_stack.shape}")
                 self._viewer.add_image(
                     measurement_stack,
                     name="Analyzed Beads",
@@ -577,8 +577,6 @@ class PsfAnalysis(QWidget):
                     self.cbox_img.currentText()
                 ].data.shape,
             )
-            print(f"measurement_stack shape: {measurement_stack.shape}")
-            print(f"measurement_scale: {measurement_scale}")
             if measurement_stack is not None:
                 return measurement_stack, measurement_scale
 

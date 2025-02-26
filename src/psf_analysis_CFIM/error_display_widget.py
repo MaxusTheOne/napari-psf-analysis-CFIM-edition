@@ -1,18 +1,11 @@
 import numpy as np
+from qtpy.QtCore import QObject, Signal
 from napari.utils.events import EventEmitter
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import QHBoxLayout
 from qtpy.QtWidgets import QLabel
 from qtpy.QtWidgets import QWidget, QVBoxLayout, QPushButton, QMessageBox
 from qtpy.QtGui import QPixmap
-
-class ErrorHandler:
-    pass
-
-error_emitter = EventEmitter(source=ErrorHandler())
-def report_error(message="", point=None):
-    """Sends an error emission with the given message."""
-    error_emitter(type_name="error", message=message, point=point)
 
 
 def upscale_to_3d(coordinate):
@@ -34,17 +27,32 @@ def upscale_to_3d(coordinate):
         raise ValueError("Coordinate must have at most 3 dimensions")
 
 
+def report_error(message, point=()):
+    error_emitter.errorOccurred.emit(message, point)
+
+def report_warning(message, point=()):
+    error_emitter.warningOccurred.emit(message, point)
+
+class ErrorEmitter(QObject):
+    errorOccurred = Signal(str, tuple)
+    warningOccurred = Signal(str, tuple)
+
+
+error_emitter = ErrorEmitter()
+
+
 class ErrorDisplayWidget(QWidget):
-    def __init__(self, parent=None, viewer=None, scale=(1,1,1)):
+    def __init__(self, parent=None, viewer=None, scale=(1, 1, 1)):
         super().__init__(parent)
         self.warnings = []
         self.errors = []
         self._init_ui()
         self._viewer = viewer
         self._scale = scale
-        self.points_layer = None
-        error_emitter.connect(self.on_error_event)
-
+        self.error_points_layer = None
+        self.warning_points_layer = None
+        error_emitter.errorOccurred.connect(self._on_error_event)
+        error_emitter.warningOccurred.connect(self._on_warning_event)
 
     def _init_ui(self):
         layout = QVBoxLayout(self)
@@ -56,20 +64,27 @@ class ErrorDisplayWidget(QWidget):
 
         self._update_summary()
 
-    def _init_points_layer(self):
+    def _init_error_points_layer(self):
         layer_name = "Errors"
         if layer_name in self._viewer.layers:
             return self._viewer.layers[layer_name]
         else:
-            return self._viewer.add_points(np.empty((0,3)), name=layer_name, face_color='red',scale=self._scale, size=10)
+            return self._viewer.add_points(np.empty((0, 3)), name=layer_name, face_color='red', scale=self._scale,
+                                           size=7)
 
-    def on_error_event(self, event):
+    def _init_warning_points_layer(self):
+        layer_name = "Filtered beads"
+        if layer_name in self._viewer.layers:
+            return self._viewer.layers[layer_name]
+        else:
+            return self._viewer.add_points(np.empty((0, 3)), name=layer_name, face_color='yellow', scale=self._scale,
+                                           size=6)
+
+    def _on_error_event(self, string: str, point: tuple):
         """Add an error message to the display."""
-        message = event.message
-        point = event.point
 
-        if message != "":
-            self.add_error(message)
+        if string != "":
+            self.add_error(string)
         if point:
             self.add_error_point(point)
 
@@ -80,15 +95,37 @@ class ErrorDisplayWidget(QWidget):
         """
 
         # TODO: Grab the right scale
-        if self.points_layer is None:
+        if self.error_points_layer is None:
             self._scale = self._viewer.layers[0].scale
-            self.points_layer = self._init_points_layer()
+            self.error_points_layer = self._init_error_points_layer()
         coordinate = upscale_to_3d(coordinate)
-        # Convert the existing data to a list, append the new coordinate,
-        # and update the layer’s data.
-        data = self.points_layer.data.tolist() if self.points_layer.data.size else []
+
+        data = self.error_points_layer.data.tolist() if self.error_points_layer.data.size else []
         data.append(coordinate)
-        self.points_layer.data = np.array(data)
+        self.error_points_layer.data = np.array(data)
+
+    def _on_warning_event(self, string: str, point: tuple):
+        """Add a warning message to the display."""
+
+        if string != "":
+            self.add_warning(string)
+        if point:
+            self.add_warning_point(point)
+
+    def add_warning_point(self, coordinate):
+        """
+        Add a new point to the warning points layer.
+        Expected coordinate is a 3D tuple (z, x, y).
+        """
+
+        if self.warning_points_layer is None:
+            self._scale = self._viewer.layers[0].scale
+            self.warning_points_layer = self._init_warning_points_layer()
+        coordinate = upscale_to_3d(coordinate)
+
+        data = self.warning_points_layer.data.tolist() if self.warning_points_layer.data.size else []
+        data.append(coordinate)
+        self.warning_points_layer.data = np.array(data)
 
     def _update_summary(self):
         """Update the button text with a summary of warnings and errors."""
@@ -103,9 +140,6 @@ class ErrorDisplayWidget(QWidget):
 
         summary_text = " ".join(parts) if parts else "No issues"
         self.summary_button.setText(summary_text)
-
-
-
 
     def _show_details(self):
         """Show a dialog with detailed error and warning messages."""
@@ -147,12 +181,10 @@ class ErrorDisplayWidget(QWidget):
         msg_box.layout().addWidget(details_widget)
         msg_box.exec_()
 
-
     def add_warning(self, message: str):
         """Add a warning message and update the summary."""
         self.warnings.append(message)
         self._update_summary()
-
 
     def add_error(self, message: str):
         """Add an error message and update the summary."""
