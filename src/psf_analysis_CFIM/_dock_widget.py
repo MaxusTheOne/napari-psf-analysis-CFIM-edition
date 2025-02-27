@@ -116,8 +116,6 @@ class PsfAnalysis(QWidget):
         self.layout().addWidget(setting_tabs)
         self._add_analyse_buttons()
 
-        self.layout().addWidget(self.error_widget)
-
         self._add_interaction_buttons()
 
         self._add_save_dialog()
@@ -139,9 +137,9 @@ class PsfAnalysis(QWidget):
         self.find_beads_button.setEnabled(False)
         self.find_beads_button.clicked.connect(self.find_beads)
         pane.layout().addRow(self.find_beads_button)
-        self.analyse_img_button = QPushButton("Analyse Image")
+        self.analyse_img_button = QPushButton("Re-Analyse Image")
         self.analyse_img_button.setEnabled(True)
-        self.analyse_img_button.clicked.connect(self._test_error)
+        self.analyse_img_button.clicked.connect(self._validate_image)
         pane.layout().addRow(self.analyse_img_button)
         self.error_widget = ErrorDisplayWidget(parent=self, viewer=self._viewer)
         pane.layout().addRow(self.error_widget)
@@ -251,11 +249,14 @@ class PsfAnalysis(QWidget):
         advanced_settings.layout().addRow(
             QLabel("Bead Supplier", advanced_settings), self.bead_supplier
         )
-        self.mounting_medium = QLineEdit()
-        self.mounting_medium.setToolTip("Name of the mounting medium.")
+        self.mounting_medium = QDoubleSpinBox(parent=advanced_settings)
+        self.mounting_medium.setToolTip("RI index of the mounting medium.")
         advanced_settings.layout().addRow(
-            QLabel("Mounting Medium", advanced_settings), self.mounting_medium
+            QLabel("RI Mounting Medium", advanced_settings), self.mounting_medium
         )
+        self.mounting_medium.setMinimum(0)
+        self.mounting_medium.setMaximum(2)
+        self.mounting_medium.setValue(1.4)
         self.operator = QLineEdit()
         self.operator.setToolTip("Person in charge of the PSF acquisition.")
         advanced_settings.layout().addRow(
@@ -430,7 +431,7 @@ class PsfAnalysis(QWidget):
                         datetime.fromtimestamp(getctime(layer.source.path))
                     )
                     self.fill_settings_boxes(layer)
-                    self._create_statistic_and_validate_image()
+                    self._validate_image()
                     self._create_bead_finder(layer)
 
     def fill_settings_boxes(self, layer):
@@ -484,7 +485,7 @@ class PsfAnalysis(QWidget):
         self.cancel.setText("Cancelling...")
 
     def prepare_measure(self):
-        img_data = self._get_img_data()
+        img_data = self._get_current_img_data()
         if img_data is None:
             return
 
@@ -532,6 +533,7 @@ class PsfAnalysis(QWidget):
                     date=analyzer.get_date(),
                     version=analyzer.get_version(),
                     dpi=analyzer.get_dpi(),
+                    top_left_message=f"Average PSF of {len(measurement_stack)} beads",
                 )
                 display_averaged_measurement_stack(self._viewer, averaged_summary_image, measurement_scale)
 
@@ -591,13 +593,14 @@ class PsfAnalysis(QWidget):
         self.extract_psfs.setEnabled(False)
         self.cancel.setEnabled(True)
 
-    def _create_statistic_and_validate_image(self):
+    def _validate_image(self):
         try:
             self.error_widget.clear()
-            analyze_image(self._get_img_data(), self.error_widget)
+            analyze_image(self._get_current_img_layer(), self.error_widget, widget_settings={"RI_mounting_medium": self.mounting_medium.value(), "Emission": self.emission.value(), "NA": self.na.value()})
 
         except Exception as e:
-            self.error_widget.add_error(f"Error during image validation: {e}")
+            print("Error in image analysis: ", e)
+            raise e
 
     def _setup_progressbar(self, point_data):
         self.progressbar.reset()
@@ -630,13 +633,16 @@ class PsfAnalysis(QWidget):
         else:
             return point_layer.data.copy()
 
-    def _get_img_data(self):
-
-
+    def _get_current_img_layer(self):
         img_layer = None
         for layer in self._viewer.layers:
             if str(layer) == self.cbox_img.currentText():
                 img_layer = layer
+        return img_layer
+
+    def _get_current_img_data(self):
+
+        img_layer = self._get_current_img_layer()
 
         if img_layer is None:
             show_info("Please add an image and select it.")
@@ -645,7 +651,7 @@ class PsfAnalysis(QWidget):
         if len(img_layer.data.shape) != 3:
             raise NotImplementedError(
                 f"Only 3 dimensional data is "
-                f"supported. Your data has {(img_layer.data.shape)} dimensions."
+                f"supported. Your data has {img_layer.data.shape} dimensions."
             )
 
         from bfio.bfio import BioReader
@@ -656,7 +662,7 @@ class PsfAnalysis(QWidget):
             img_data = img_layer.data.copy()
 
         return img_data
-
+    
     def _get_patch_size(self):
         return (
             (self.psf_z_box_size.value()),

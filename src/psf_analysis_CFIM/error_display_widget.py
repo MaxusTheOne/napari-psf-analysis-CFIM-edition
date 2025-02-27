@@ -46,13 +46,13 @@ class ErrorDisplayWidget(QWidget):
         super().__init__(parent)
         self.warnings = []
         self.errors = []
-        self._init_ui()
         self._viewer = viewer
         self._scale = scale
         self.error_points_layer = None
         self.warning_points_layer = None
         error_emitter.errorOccurred.connect(self._on_error_event)
         error_emitter.warningOccurred.connect(self._on_warning_event)
+        self._init_ui()
 
     def _init_ui(self):
         layout = QVBoxLayout(self)

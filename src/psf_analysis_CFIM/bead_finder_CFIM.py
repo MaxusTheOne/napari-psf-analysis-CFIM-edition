@@ -9,25 +9,45 @@ from psf_analysis_CFIM.error_display_widget import report_warning
 
 class BeadFinder:
     def __init__(self, image, scale: tuple, bounding_box: tuple):
-        self._debug = False
+        self._debug = True
         self.image = image
         self.scale = scale
         self._border = 5
-        self._bounding_box = bounding_box / np.array(scale)
-        self.max_bead_dist = np.linalg.norm(np.array(bounding_box))
-        print(f"Max bead distance: {self.max_bead_dist}")
+
+        self.bounding_box_um = np.array(bounding_box) / 1000
+        self.bounding_box_px = np.array(self.bounding_box_um) / np.array(scale)
+        self.max_bead_dist = np.linalg.norm(np.array(self.bounding_box_px)) / 2
+    """
+    A class to find beads in a 3D image stack.
+
+    Attributes:
+        image (np.ndarray): The 3D image stack (z, y, x) in pixel units.
+        scale (Tuple[float, float, float]): The scale of the image (µm/px).
+        bounding_box (Tuple[float, float, float]): The bounding box dimensions (nm).
+    """
+
     def find_beads(self):
         image = self._max_projection()
         image = self._median_filter(image)
 
-        xy_beads, discarded_xy = self._maxima(image)
-        beads, discarded_beads = self._find_bead_positions(xy_beads)
-        xy_discarded_beads, x = self._find_bead_positions(discarded_xy, no_filter=True)
-        discarded_beads = discarded_beads + xy_discarded_beads
+        yx_beads, discarded_xy = self._maxima(image)
+        zyx_beads, zyx_discarded_beads = self._find_bead_positions(yx_beads)
+        # TODO: Use a better algorithm for neighbor distance. This one is O(n^2). VERY SLOW.
+        beads, discarded_beads_by_neighbor_dist = self.filter_beads_by_neighbour_distance(zyx_beads)
+        yx_discarded_beads, x = self._find_bead_positions(discarded_xy, no_filter=True) # Convert discarded yx beads to zyx
 
-        beads, discarded_beads_by_neighbor_dist = self.filter_beads_by_neighbour_distance(beads)
+        # Combine discarded beads TODO: Add lines to visualize discarded beads from neighbor distance
+        discarded_beads = zyx_discarded_beads + yx_discarded_beads + discarded_beads_by_neighbor_dist
 
-        if self._debug: print(f"Beads inside border: {len(beads)} | Discarded beads: {len(discarded_beads)} | Total beads: {len(beads) + len(discarded_beads)} ")
+        if self._debug: # It was really important to color code the output, trust me...
+            green = '\033[92m'
+            yellow = '\033[93m'
+            endc = '\033[0m'
+
+            print(
+                f"Beads {green}passed{endc} / {yellow}discarded{endc} \nmaxima: {green}{len(yx_beads)}{endc} / {yellow}{len(discarded_xy)}{endc} "
+                f"| z border: {green}{len(zyx_beads)}{endc} / {yellow}{len(zyx_discarded_beads)}{endc} | neighbor dist: {green}{len(beads)}{endc} / {yellow}{len(discarded_beads_by_neighbor_dist)}{endc}")
+            print(f"Total: {green}{len(beads)}{endc} / {yellow}{len(discarded_beads)}{endc}")
 
         return beads, discarded_beads
 
@@ -49,6 +69,7 @@ class BeadFinder:
         xy_bead_positions = [(y, x) for (y, x) in xy_bead_positions]
         in_border_xy_bead_positions = [bead for bead in xy_bead_positions if self._border < bead[0] < self.image.shape[1] - self._border and self._border < bead[1] < self.image.shape[2] - self._border]
         discarded_beads = [bead for bead in xy_bead_positions if bead not in in_border_xy_bead_positions]
+
         return in_border_xy_bead_positions, discarded_beads
 
     def _find_bead_positions(self, xy_beads, no_filter=False):
@@ -78,7 +99,7 @@ class BeadFinder:
                 distance = np.linalg.norm(np.array(bead) - np.array(neighbour))
                 if distance < smallest_distance:
                     smallest_distance = distance
-            if smallest_distance > 5:
+            if smallest_distance > self.max_bead_dist:
                 valid_beads.append(bead)
             else:
                 discarded_beads.append(bead)

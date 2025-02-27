@@ -66,10 +66,6 @@ class PSFRenderEngine:
 
         self._add_axis_annotations()
 
-        import matplotlib.pyplot as plt
-        plt.imshow(self._figure)
-        plt.show()
-
     def _add_axis_annotations(self) -> None:
         ax_X = self._figure.add_axes([0.25, 0.5, 0.02, 0.02])
         ax_X.text(0, -0.1, "X", fontsize=14, ha="center", va="center")
@@ -85,7 +81,7 @@ class PSFRenderEngine:
         ax_Z1.axis("off")
 
     def render(
-        self, date: str = None, version: str = None, dpi: int = 300
+        self, date: str = None, version: str = None, dpi: int = 300, *, top_left_message: str = None
     ) -> ArrayLike:
         self._build_layout(dpi=dpi)
         self._add_projections(dpi=dpi)
@@ -96,6 +92,9 @@ class PSFRenderEngine:
 
         if version is not None:
             self._add_version(version)
+
+        if top_left_message:
+            self._add_top_left_message(top_left_message)
 
         return self._fig_to_image()
 
@@ -429,10 +428,10 @@ class PSFRenderEngine:
         self._configure_ticks_and_bounds()
 
         if not self._has_nan_fwhm():
-            self._add_axis_aligned_ellipsoid()
+            self._add_axis_aligned_ellipsoid() # Adds a grey ellipsoid from the fwhm of yx and z fits
 
-        self._add_zyx_ellipsoid()
-        self._add_principal_components_annotons()
+        self._add_zyx_ellipsoid() # Adds a blue ellipsoid from covariance
+        self._add_principal_components_annotons() # Adds axes annotation next to the ellipsoid figure, from something from the fit idk.
 
     def _add_axis_aligned_ellipsoid(self):
         from psf_analysis_CFIM.psf_analysis.utils import sigma
@@ -544,6 +543,7 @@ class PSFRenderEngine:
                 [fit.zyx_czx, fit.zyx_czy, fit.zyx_czz],
             ]
         )
+
         cv_ell = self._get_ellipsoid(
             covariance=covariance, spacing=self.psf_image.spacing
         )
@@ -648,8 +648,11 @@ class PSFRenderEngine:
             horizontalalignment="right",
         )
 
-    def _add_version(self, version: str) -> None:
-        self._ax_3d_text.text(-110, -4, f"napari-psf-analysis: v{version}", fontsize=11)
+    def _add_version(self, version: str) -> None: # Adds text to the bottom left with version number
+        self._ax_3d_text.text(-110, -4, f"psf-analysis-CFIM: v{version}", fontsize=11)
+
+    def _add_top_left_message(self, message: str) -> None:
+        self._ax_3d_text.text(-110, 212, message, fontsize=14)
 
     def _fig_to_image(self):
         from matplotlib_inline.backend_inline import FigureCanvas
@@ -703,9 +706,11 @@ class PSF:
         date: str = None,
         version: str = None,
         dpi: int = 300,
+        *,
+        top_left_message: str = None
     ) -> ArrayLike:
         engine = PSFRenderEngine(psf_image=self.image, psf_record=self.psf_record)
-        return engine.render(date=date, version=version, dpi=dpi)
+        return engine.render(date=date, version=version, dpi=dpi, top_left_message=top_left_message)
 
     def get_summary_dict(self) -> dict:
         return {
