@@ -11,6 +11,7 @@ class BeadFinder:
         self.image = image
         self.scale = scale
         self._border = 5
+        self.yx_border_padding = 2
 
         self.bounding_box_um = np.array(bounding_box) / 1000
         self.bounding_box_px = np.array(self.bounding_box_um) / np.array(scale)
@@ -30,7 +31,7 @@ class BeadFinder:
 
         yx_beads, discarded_xy = self._maxima(image)
         zyx_beads, zyx_discarded_beads = self._find_bead_positions(yx_beads)
-        # TODO: Use a better algorithm for neighbor distance. This one is O(n^2). VERY SLOW.
+        # TODO: OPTIMIZE Use a better algorithm for neighbor distance. This one is O(n^2). VERY SLOW.
         beads, discarded_beads_by_neighbor_dist = self.filter_beads_by_neighbour_distance(zyx_beads)
         yx_discarded_beads, x = self._find_bead_positions(discarded_xy, no_filter=True) # Convert discarded yx beads to zyx
 
@@ -63,9 +64,10 @@ class BeadFinder:
 
     # TODO: Dynamically find threshold or make it a parameter/config
     def _maxima(self, image) -> (List[Tuple], List[Tuple]):
+        yx_border = self._border + self.yx_border_padding
         xy_bead_positions = peak_local_max(image, min_distance=2, threshold_abs=3000, exclude_border=0)
         xy_bead_positions = [(y, x) for (y, x) in xy_bead_positions]
-        in_border_xy_bead_positions = [bead for bead in xy_bead_positions if self._border < bead[0] < self.image.shape[1] - self._border and self._border < bead[1] < self.image.shape[2] - self._border]
+        in_border_xy_bead_positions = [bead for bead in xy_bead_positions if yx_border < bead[0] < self.image.shape[1] - yx_border and yx_border < bead[1] < self.image.shape[2] - yx_border]
         discarded_beads = [bead for bead in xy_bead_positions if bead not in in_border_xy_bead_positions]
 
         return in_border_xy_bead_positions, discarded_beads

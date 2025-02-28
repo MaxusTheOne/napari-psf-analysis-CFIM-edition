@@ -4,7 +4,7 @@ import numpy as np
 from qtpy.QtCore import QBuffer, QIODevice
 from qtpy.QtCore import QByteArray
 from qtpy.QtCore import QObject, Signal
-from napari.utils.events import EventEmitter
+
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import QHBoxLayout
 from qtpy.QtWidgets import QLabel
@@ -67,6 +67,7 @@ class ErrorDisplayWidget(QWidget):
         self._scale = scale
         self.error_points_layer = None
         self.warning_points_layer = None
+        self.img_index = 0
 
         self.warning_icon = QPixmap("src/psf_analysis_CFIM/error_widget/resources/warning_triangle.png")
         self.error_icon = QPixmap("src/psf_analysis_CFIM/error_widget/resources/error_triangle.png")
@@ -75,7 +76,13 @@ class ErrorDisplayWidget(QWidget):
 
         error_emitter.errorOccurred.connect(self._on_error_event)
         error_emitter.warningOccurred.connect(self._on_warning_event)
+
         self._init_ui()
+
+    def set_img_index(self, index):
+        self.img_index = index
+        self._scale = self._viewer.layers[self.img_index].scale
+
 
     def _init_ui(self):
         layout = QVBoxLayout(self)
@@ -105,7 +112,6 @@ class ErrorDisplayWidget(QWidget):
 
     def _on_error_event(self, string: str, point: tuple):
         """Add an error message to the display."""
-
         if string != "":
             self.add_error(string)
         if point:
@@ -116,11 +122,7 @@ class ErrorDisplayWidget(QWidget):
         Add a new point to the error points layer.
         Expected coordinate is a 3D tuple (z, x, y).
         """
-
-        # TODO: Grab the right scale
-        if self.error_points_layer is None:
-            self._scale = self._viewer.layers[0].scale
-            self.error_points_layer = self._init_error_points_layer()
+        self.error_points_layer = self._init_error_points_layer()
         coordinate = upscale_to_3d(coordinate)
 
         data = self.error_points_layer.data.tolist() if self.error_points_layer.data.size else []
@@ -140,10 +142,7 @@ class ErrorDisplayWidget(QWidget):
         Add a new point to the warning points layer.
         Expected coordinate is a 3D tuple (z, x, y).
         """
-
-        if self.warning_points_layer is None:
-            self._scale = self._viewer.layers[0].scale
-            self.warning_points_layer = self._init_warning_points_layer()
+        self.warning_points_layer = self._init_warning_points_layer()
         coordinate = upscale_to_3d(coordinate)
 
         data = self.warning_points_layer.data.tolist() if self.warning_points_layer.data.size else []
@@ -161,7 +160,7 @@ class ErrorDisplayWidget(QWidget):
         if num_errors:
             parts.append(f"{num_errors} error{'s' if num_errors > 1 else ''} {self.error_icon_html}")
 
-        summary_text = f'<div style="display: flex; align-items: center; font-style: italic">{" ".join(parts) if parts else "No issues"}</div>'
+        summary_text = f'<div style="display: flex; align-items: center">{" ".join(parts) if parts else "No issues"}</div>'
 
         self.summary_button.setText(summary_text)
 

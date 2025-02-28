@@ -10,7 +10,7 @@ from magicgui import magic_factory
 from napari import viewer
 from napari._qt.qthreading import FunctionWorker, thread_worker
 from napari.settings import get_settings
-from napari.utils.notifications import show_info
+from napari.utils.notifications import show_info, show_warning
 from qtpy.QtWidgets import (
     QComboBox,
     QDateEdit,
@@ -325,12 +325,12 @@ class PsfAnalysis(QWidget):
         basic_settings.layout().addRow(
             QLabel("Acquisition Date", basic_settings), self.date
         )
-        microscope_options = get_microscopes(get_psf_analysis_settings_path())
-        if isinstance(microscope_options, list):
-            self.microscope = QComboBox(parent=basic_settings)
-            self.microscope.addItems(microscope_options)
-        else:
-            self.microscope = QLineEdit(microscope_options)
+        # microscope_options = get_microscopes(get_psf_analysis_settings_path())
+        # if isinstance(microscope_options, list):
+        # self.microscope = QComboBox(parent=basic_settings)
+            # self.microscope.addItems(microscope_options)
+        # else:
+        self.microscope = QLineEdit("Undefined")
         self.microscope.setToolTip(
             "Name of the microscope which was used to" " acquire the PSFs."
         )
@@ -432,21 +432,38 @@ class PsfAnalysis(QWidget):
                     self.date.setDate(
                         datetime.fromtimestamp(getctime(layer.source.path))
                     )
+                    # NOTE: maybe put these in their own function
                     self.fill_settings_boxes(layer)
+                    self.error_widget.set_img_index(self.current_img_index)
                     self._validate_image()
                     self._create_bead_finder(layer)
+                    break
 
     def fill_settings_boxes(self, layer):
         metadata = layer.metadata
-        self.microscope.setText(metadata["MicroscopeType"])
-        self.magnification.setValue(int(metadata["Magnification"]))
-        self.objective_id.setText(metadata["ObjectiveID"])
-        self.na.setValue(float(metadata["NA"]))
-        self.airy_unit.setValue(round(float(metadata["AiryUnit"]), 2))
-        self.excitation.setValue(round(float(metadata["Excitation"]),2))
-        self.emission.setValue(round(float(metadata["Emission"]),2))
-        self.xy_pixelsize.setValue(round(float(layer.scale[1])*1000,2))
-        self.z_spacing.setValue(round(float(layer.scale[0])*1000,2))
+        required_keys = [
+            "MicroscopeType", "ObjectiveID", "Magnification", "NA",
+            "AiryUnit", "Excitation", "Emission"
+        ]
+        missing_keys = []
+        for key in required_keys:
+            if key not in metadata.keys():
+                missing_keys.append(key)
+        if missing_keys:
+            show_warning(f"Missing metadata: {missing_keys} | Plugin only made for .CZI (for now) | Plugin might behave unexpectedly")
+
+        try:
+            self.microscope.setText(metadata["MicroscopeType"])
+            self.objective_id.setText(metadata["ObjectiveID"])
+            self.magnification.setValue(int(metadata["Magnification"]))
+            self.na.setValue(float(metadata["NA"]))
+            self.airy_unit.setValue(round(float(metadata["AiryUnit"]), 2))
+            self.excitation.setValue(round(float(metadata["Excitation"]),2))
+            self.emission.setValue(round(float(metadata["Emission"]),2))
+            self.xy_pixelsize.setValue(round(float(layer.scale[1])*1000,2))
+            self.z_spacing.setValue(round(float(layer.scale[0])*1000,2))
+        except KeyError as e:
+            print(f"Missing metadata for settings: {e} and possible more")
 
     def _create_bead_finder(self, layer):
         if self.bead_finder is None:
@@ -598,7 +615,8 @@ class PsfAnalysis(QWidget):
     def _validate_image(self):
         try:
             self.error_widget.clear()
-            analyze_image(self._get_current_img_layer(), self.error_widget, widget_settings={"RI_mounting_medium": self.mounting_medium.value(), "Emission": self.emission.value(), "NA": self.na.value()})
+            analyze_image(self._get_current_img_layer(), self.error_widget,
+                          widget_settings={"RI_mounting_medium": self.mounting_medium.value(), "Emission": self.emission.value(), "NA": self.na.value()})
 
         except Exception as e:
             print("Error in image analysis: ", e)
