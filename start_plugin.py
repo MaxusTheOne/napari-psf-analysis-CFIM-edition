@@ -1,11 +1,7 @@
-import os
 import subprocess
 import napari
-import numpy as np
 import argparse
 import faulthandler
-
-from psf_analysis_CFIM.czi_reader_CFIM import read_czi
 
 
 def install_plugin():

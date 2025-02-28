@@ -8,12 +8,12 @@ contributions:
   - id: psf-analysis-CFIM.PsfAnalysis
     title: Create Psf Analysis
     python_name: psf_analysis_CFIM._dock_widget:PsfAnalysis
-  - id: psf-analysis-CFIM.read_czi
+  - id: psf-analysis-CFIM.czi_reader.read_czi
     title: Read CZI File
-    python_name: psf_analysis_CFIM.czi_reader_CFIM:read_czi
+    python_name: psf_analysis_CFIM.czi_reader.czi_reader_CFIM:read_czi
 
   readers:
-   - command: psf-analysis-CFIM.read_czi
+   - command: psf-analysis-CFIM.czi_reader.read_czi
      filename_patterns: ["*.czi"]
      accepts_directories: false
   widgets:
