@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from napari.utils.notifications import show_info
 
-from psf_analysis_CFIM.error_display_widget import ErrorDisplayWidget
+from psf_analysis_CFIM.error_widget.error_display_widget import ErrorDisplayWidget
 
 # TODO: Rework this to a class
 def analyze_image(img_layer, error_widget: ErrorDisplayWidget, widget_settings: Dict[str, any], num_bins=8):
@@ -121,9 +121,9 @@ def report_z_spacing(img_layer, error_widget: ErrorDisplayWidget, widget_setting
     expected_bead_z_size = (2 * reflective_index * emission) / numeric_aparature ** 2
 
     if z_spacing > expected_bead_z_size / 2.5:
-        error_widget.add_error(f"Z-spacing is too large | Z-spacing: {z_spacing:.2f}")
+        error_widget.add_error(f"Z-spacing is too large | Z-spacing: {z_spacing:.2f} nm")
     elif z_spacing > expected_bead_z_size / 3.5:
-        error_widget.add_warning(f"Z-spacing is larger than expected | Z-spacing: {z_spacing:.2f}")
+        error_widget.add_warning(f"Z-spacing is larger than expected | Z-spacing: {z_spacing:.2f} nm")
 
 
 def _calculate_snr(img_data: np.ndarray) -> float:

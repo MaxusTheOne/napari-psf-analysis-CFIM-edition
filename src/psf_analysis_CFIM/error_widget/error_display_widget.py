@@ -1,4 +1,8 @@
+import base64
+
 import numpy as np
+from qtpy.QtCore import QBuffer, QIODevice
+from qtpy.QtCore import QByteArray
 from qtpy.QtCore import QObject, Signal
 from napari.utils.events import EventEmitter
 from qtpy.QtCore import Qt
@@ -6,6 +10,8 @@ from qtpy.QtWidgets import QHBoxLayout
 from qtpy.QtWidgets import QLabel
 from qtpy.QtWidgets import QWidget, QVBoxLayout, QPushButton, QMessageBox
 from qtpy.QtGui import QPixmap
+
+from psf_analysis_CFIM.library_workarounds.QPushButton import RichTextPushButton
 
 
 def upscale_to_3d(coordinate):
@@ -25,6 +31,17 @@ def upscale_to_3d(coordinate):
         return coordinate
     else:
         raise ValueError("Coordinate must have at most 3 dimensions")
+
+def pixmap_to_html(pixmap, width=16, height=16):
+    """Convert a QPixmap to an HTML <img> tag with a base64-encoded PNG."""
+    ba = QByteArray()
+    buffer = QBuffer(ba)
+    buffer.open(QIODevice.WriteOnly)
+    pixmap.save(buffer, "PNG")
+    buffer.close()
+    b64_str = ba.toBase64().data().decode("ascii")
+    return f'<img src="data:image/png;base64,{b64_str}" width="{width}" height="{height}">'
+
 
 
 def report_error(message, point=()):
@@ -50,6 +67,12 @@ class ErrorDisplayWidget(QWidget):
         self._scale = scale
         self.error_points_layer = None
         self.warning_points_layer = None
+
+        self.warning_icon = QPixmap("src/psf_analysis_CFIM/error_widget/resources/warning_triangle.png")
+        self.error_icon = QPixmap("src/psf_analysis_CFIM/error_widget/resources/error_triangle.png")
+        self.warning_icon_html = pixmap_to_html(self.warning_icon)
+        self.error_icon_html = pixmap_to_html(self.error_icon)
+
         error_emitter.errorOccurred.connect(self._on_error_event)
         error_emitter.warningOccurred.connect(self._on_warning_event)
         self._init_ui()
@@ -58,7 +81,7 @@ class ErrorDisplayWidget(QWidget):
         layout = QVBoxLayout(self)
         self.setLayout(layout)
 
-        self.summary_button = QPushButton(self)
+        self.summary_button = RichTextPushButton(self)
         self.summary_button.clicked.connect(self._show_details)
         self.layout().addWidget(self.summary_button)
 
@@ -134,12 +157,14 @@ class ErrorDisplayWidget(QWidget):
 
         parts = []
         if num_warnings:
-            parts.append(f"{num_warnings} warning{'s' if num_warnings > 1 else ''}")
+            parts.append(f"{num_warnings} warning{'s' if num_warnings > 1 else ''} {self.warning_icon_html}")
         if num_errors:
-            parts.append(f"{num_errors} error{'s' if num_errors > 1 else ''}")
+            parts.append(f"{num_errors} error{'s' if num_errors > 1 else ''} {self.error_icon_html}")
 
-        summary_text = " ".join(parts) if parts else "No issues"
+        summary_text = f'<div style="display: flex; align-items: center; font-style: italic">{" ".join(parts) if parts else "No issues"}</div>'
+
         self.summary_button.setText(summary_text)
+
 
     def _show_details(self):
         """Show a dialog with detailed error and warning messages."""
@@ -149,8 +174,12 @@ class ErrorDisplayWidget(QWidget):
         details_widget = QWidget()
         details_layout = QVBoxLayout(details_widget)
 
-        warning_icon = QPixmap("src/psf_analysis_CFIM/resources/warning_triangle.png")
-        error_icon = QPixmap("src/psf_analysis_CFIM/resources/error_triangle.png")
+        # TODO: Add this into a debug file
+        # print(f"Type: {type(self.summary_button)} | class: {self.summary_button.__class__} | meta_obj: {self.summary_button.metaObject().className()}")
+        # print(f"Parent Hierarchy: {self.summary_button.parent()}")
+        # print(f"Dynamic Properties:", end="")
+        # for prop in self.summary_button.dynamicPropertyNames():
+        #     print(prop.data().decode(), self.summary_button.property(prop.data().decode()))
 
         def add_message(icon, message):
             label = QWidget()
@@ -170,10 +199,10 @@ class ErrorDisplayWidget(QWidget):
             details_layout.addWidget(label)
 
         for warning in self.warnings:
-            add_message(warning_icon, warning)
+            add_message(self.warning_icon, warning)
 
         for error in self.errors:
-            add_message(error_icon, error)
+            add_message(self.error_icon, error)
 
         if not self.warnings and not self.errors:
             details_layout.addWidget(QLabel("No issues detected."))

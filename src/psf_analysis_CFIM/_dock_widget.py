@@ -31,7 +31,7 @@ from qtpy.QtWidgets import (
 from skimage.io import imsave
 
 from psf_analysis_CFIM.bead_finder_CFIM import BeadFinder
-from psf_analysis_CFIM.error_display_widget import ErrorDisplayWidget, error_emitter, report_error, report_warning
+from psf_analysis_CFIM.error_widget.error_display_widget import ErrorDisplayWidget, report_error, report_warning
 from psf_analysis_CFIM.psf_analysis.analyzer import Analyzer
 from psf_analysis_CFIM.psf_analysis.image_analysis import analyze_image
 from psf_analysis_CFIM.psf_analysis.parameters import PSFAnalysisInputs
@@ -142,8 +142,10 @@ class PsfAnalysis(QWidget):
         self.analyse_img_button.clicked.connect(self._validate_image)
         pane.layout().addRow(self.analyse_img_button)
         self.error_widget = ErrorDisplayWidget(parent=self, viewer=self._viewer)
+        print(f"Type: {type(self.error_widget)} | class: {self.error_widget.__class__}")
         pane.layout().addRow(self.error_widget)
         self.layout().addWidget(pane)
+        print(f"Type: {type(self.error_widget)} | class: {self.error_widget.__class__}")
 
     def _test_error(self):
         report_error("Test Error",(20,20,20))

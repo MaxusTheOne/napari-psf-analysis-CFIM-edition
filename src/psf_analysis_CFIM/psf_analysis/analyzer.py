@@ -6,7 +6,7 @@ import pandas as pd
 from botocore.model import InvalidShapeError
 from numpy._typing import ArrayLike
 
-from psf_analysis_CFIM.error_display_widget import report_error
+from psf_analysis_CFIM.error_widget.error_display_widget import report_error
 from psf_analysis_CFIM.psf_analysis.extract.BeadExtractor import BeadExtractor
 from psf_analysis_CFIM.psf_analysis.image import Calibrated3DImage
 from psf_analysis_CFIM.psf_analysis.parameters import PSFAnalysisInputs

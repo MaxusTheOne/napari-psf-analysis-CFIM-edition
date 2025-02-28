@@ -4,8 +4,6 @@ import numpy as np
 from scipy.ndimage import median_filter
 from skimage.feature import peak_local_max
 
-from psf_analysis_CFIM.error_display_widget import report_warning
-
 
 class BeadFinder:
     def __init__(self, image, scale: tuple, bounding_box: tuple):
