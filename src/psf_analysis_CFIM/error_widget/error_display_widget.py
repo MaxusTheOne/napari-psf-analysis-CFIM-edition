@@ -1,15 +1,12 @@
-import base64
-
 import numpy as np
 from qtpy.QtCore import QBuffer, QIODevice
 from qtpy.QtCore import QByteArray
 from qtpy.QtCore import QObject, Signal
-
 from qtpy.QtCore import Qt
+from qtpy.QtGui import QPixmap
 from qtpy.QtWidgets import QHBoxLayout
 from qtpy.QtWidgets import QLabel
-from qtpy.QtWidgets import QWidget, QVBoxLayout, QPushButton, QMessageBox
-from qtpy.QtGui import QPixmap
+from qtpy.QtWidgets import QWidget, QVBoxLayout, QMessageBox
 
 from psf_analysis_CFIM.library_workarounds.QPushButton import RichTextPushButton
 
