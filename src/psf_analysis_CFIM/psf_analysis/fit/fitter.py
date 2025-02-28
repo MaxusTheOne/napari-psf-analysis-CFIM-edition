@@ -6,8 +6,6 @@ from fontTools.misc.arrayTools import pointsInRect
 from numpy._typing import ArrayLike
 from pydantic import ValidationError
 
-from psf_analysis_CFIM.plot_comparison import plot_point_in_image, compare_by_index, plot_points_in_image, \
-    plot_correlation_matrix
 from psf_analysis_CFIM.psf_analysis.fit.estimator import (
     YXEstimator,
     ZEstimator,
