@@ -6,7 +6,7 @@ from os.path import basename, dirname, exists, getctime, join
 import napari.layers
 import numpy as np
 import yaml
-from magicgui import magic_factory
+from PyQt5.QtWidgets import QSizePolicy, QLayout
 from napari import viewer
 from napari._qt.qthreading import FunctionWorker, thread_worker
 from napari.settings import get_settings
@@ -31,6 +31,7 @@ from qtpy.QtWidgets import (
 from skimage.io import imsave
 
 from psf_analysis_CFIM.bead_finder_CFIM import BeadFinder
+from psf_analysis_CFIM.config.settings_widget import SettingsWidget
 from psf_analysis_CFIM.error_widget.error_display_widget import ErrorDisplayWidget, report_error, report_warning
 from psf_analysis_CFIM.psf_analysis.analyzer import Analyzer
 from psf_analysis_CFIM.psf_analysis.image_analysis import analyze_image
@@ -69,6 +70,7 @@ def get_output_path(psf_settings_path):
 
 
 def load_settings(psf_settings_path):
+    print(f"Path: {psf_settings_path}")
     with open(psf_settings_path) as stream:
         settings = yaml.safe_load(stream)
     return settings
@@ -93,6 +95,7 @@ class PsfAnalysis(QWidget):
         napari_viewer.layers.events.removed.connect(self._layer_removed)
         napari_viewer.layers.selection.events.changed.connect(self._on_selection)
 
+        self.settingsWidget = SettingsWidget(parent=self)
         self.summary_figs = None
         self.results = None
         self.warnings = []
@@ -101,17 +104,19 @@ class PsfAnalysis(QWidget):
         self.bead_finder = None
 
         self.cancel_extraction = False
-
-        self.setLayout(QVBoxLayout())
-        self.setMinimumWidth(300)
-        self.setMaximumHeight(820)
+        layout = QVBoxLayout()
+        layout.setSizeConstraint(QLayout.SetFixedSize)
+        self.setLayout(layout)
+        self.setMinimumSize(340, 900)
         self._add_logo()
 
         setting_tabs = QTabWidget(parent=self)
-        setting_tabs.setLayout(QHBoxLayout())
 
         self._add_basic_settings_tab(setting_tabs)
         self._add_advanced_settings_tab(setting_tabs)
+
+        setting_tabs.setMinimumSize(210, 300)
+        setting_tabs.setMaximumSize(320, 320)
 
         self.layout().addWidget(setting_tabs)
         self._add_analyse_buttons()
@@ -120,9 +125,36 @@ class PsfAnalysis(QWidget):
 
         self._add_save_dialog()
 
+
+        self.layout().addWidget(self.settingsWidget.init_ui())
+
         self.current_img_index = -1
         self.cbox_img.currentIndexChanged.connect(self._img_selection_changed)
         self.fill_layer_boxes()
+
+        self.use_config()
+
+    def use_config(self):
+        settings = self.settingsWidget.settings
+        ui_settings = settings["ui_settings"]
+        settings_keys_to_widget_attributes = {
+            "output_folder": "save_dir_line_edit",
+        }
+        ui_settings_keys_to_widget_attributes = {
+            "bead_size": "bead_size",
+            "box_size_xy": "psf_yx_box_size",
+            "box_size_z": "psf_z_box_size",
+            "ri_mounting_medium": "mounting_medium",
+        }
+        if settings:
+            for key, value in settings.items():
+                if key in settings_keys_to_widget_attributes.keys():
+                    getattr(self, settings_keys_to_widget_attributes[key]).setText(value)
+        if ui_settings:
+            for key, value in ui_settings.items():
+                if key in ui_settings_keys_to_widget_attributes.keys():
+                    getattr(self, ui_settings_keys_to_widget_attributes[key]).setValue(value)
+
 
     def _add_logo(self):
         logo = pathlib.Path(__file__).parent / "resources" / "logo.png"
@@ -142,10 +174,8 @@ class PsfAnalysis(QWidget):
         self.analyse_img_button.clicked.connect(self._validate_image)
         pane.layout().addRow(self.analyse_img_button)
         self.error_widget = ErrorDisplayWidget(parent=self, viewer=self._viewer)
-        print(f"Type: {type(self.error_widget)} | class: {self.error_widget.__class__}")
         pane.layout().addRow(self.error_widget)
         self.layout().addWidget(pane)
-        print(f"Type: {type(self.error_widget)} | class: {self.error_widget.__class__}")
 
     def _test_error(self):
         report_error("Test Error",(20,20,20))
@@ -216,7 +246,7 @@ class PsfAnalysis(QWidget):
     def _add_advanced_settings_tab(self, setting_tabs):
         advanced_settings = QWidget(parent=setting_tabs)
         setting_tabs.addTab(advanced_settings, "Advanced")
-        advanced_settings.setLayout(QFormLayout())
+        advanced_settings.setLayout(QFormLayout(setting_tabs))
         self.temperature = QDoubleSpinBox(parent=advanced_settings)
         self.temperature.setToolTip("Temperature at which this PSF was " "acquired.")
         self.temperature.setMinimum(-100)
@@ -307,7 +337,7 @@ class PsfAnalysis(QWidget):
     def _add_basic_settings_tab(self, setting_tabs):
         basic_settings = QWidget(parent=setting_tabs)
         setting_tabs.addTab(basic_settings, "Basic")
-        basic_settings.setLayout(QFormLayout())
+        basic_settings.setLayout(QFormLayout(setting_tabs))
         self.cbox_img = QComboBox(parent=basic_settings)
         self.cbox_img.setToolTip(
             "Image layer with the measured point spread functions (PSFs)."
@@ -615,8 +645,11 @@ class PsfAnalysis(QWidget):
     def _validate_image(self):
         try:
             self.error_widget.clear()
+            widget_settings = {**self.settingsWidget.settings["image_analysis_settings"], **{
+                "RI_mounting_medium": self.mounting_medium.value(), "Emission": self.emission.value(),
+                "NA": self.na.value()}}
             analyze_image(self._get_current_img_layer(), self.error_widget,
-                          widget_settings={"RI_mounting_medium": self.mounting_medium.value(), "Emission": self.emission.value(), "NA": self.na.value()})
+                          widget_settings=widget_settings)
 
         except Exception as e:
             print("Error in image analysis: ", e)
@@ -732,9 +765,9 @@ class PsfAnalysis(QWidget):
             show_info("Please select the 'Analyzed Beads' layer.")
 
     def save_measurements(self):
-        outpath = self.save_dir_line_edit.text()
+        out_path = self.settingsWidget.settings["output_folder"]
         for i, row in self.results.iterrows():
-            save_path = join(outpath, basename(row["PSF_path"]))
+            save_path = join(out_path, basename(row["PSF_path"]))
             imsave(save_path, self.summary_figs[i])
 
         if self.temperature.text() != "":
@@ -773,7 +806,7 @@ class PsfAnalysis(QWidget):
         entry = self.results.iloc[0]
         self.results.to_csv(
             join(
-                outpath,
+                out_path,
                 "PSFMeasurement_"
                 + entry["Date"]
                 + "_"
@@ -791,19 +824,3 @@ class PsfAnalysis(QWidget):
 
         show_info("Saved results.")
 
-
-@magic_factory(
-    config_path={"label": "Config Path", "filter": "*.yaml"},
-    call_button="Use config file.",
-)
-def set_config(config_path=pathlib.Path.home()):
-    if exists(config_path):
-        settings = load_settings(config_path)
-        if "microscopes" in settings.keys() or "output_path" in settings.keys():
-            config_pointer_path = join(
-                dirname(get_settings()._config_path), "psf_analysis_config_pointer.yaml"
-            )
-
-            with open(config_pointer_path, "w") as yamlfile:
-                conf_dict = {"psf_analysis_config_file": str(config_path)}
-                yaml.safe_dump(conf_dict, yamlfile)

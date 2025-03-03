@@ -41,10 +41,10 @@ def pixmap_to_html(pixmap, width=16, height=16):
 
 
 
-def report_error(message, point=()):
+def report_error(message="", point=()):
     error_emitter.errorOccurred.emit(message, point)
 
-def report_warning(message, point=()):
+def report_warning(message="", point=()):
     error_emitter.warningOccurred.emit(message, point)
 
 class ErrorEmitter(QObject):
@@ -60,11 +60,12 @@ class ErrorDisplayWidget(QWidget):
         super().__init__(parent)
         self.warnings = []
         self.errors = []
-        self._viewer = viewer
-        self._scale = scale
         self.error_points_layer = None
         self.warning_points_layer = None
         self.img_index = 0
+
+        self._viewer = viewer
+        self._scale = scale
 
         self.warning_icon = QPixmap("src/psf_analysis_CFIM/error_widget/resources/warning_triangle.png")
         self.error_icon = QPixmap("src/psf_analysis_CFIM/error_widget/resources/error_triangle.png")
@@ -154,10 +155,12 @@ class ErrorDisplayWidget(QWidget):
         parts = []
         if num_warnings:
             parts.append(f"{num_warnings} warning{'s' if num_warnings > 1 else ''} {self.warning_icon_html}")
+        if num_warnings and num_errors:
+            parts.append(" | ")
         if num_errors:
             parts.append(f"{num_errors} error{'s' if num_errors > 1 else ''} {self.error_icon_html}")
 
-        summary_text = f'<div style="display: flex; align-items: center">{" ".join(parts) if parts else "No issues"}</div>'
+        summary_text = f'<div style="display: flex; align-items: center{"; text-decoration: underline" if parts else ""}">{" ".join(parts) if parts else "No issues"}</div>'
 
         self.summary_button.setText(summary_text)
 

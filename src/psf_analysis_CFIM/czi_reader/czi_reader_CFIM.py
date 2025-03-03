@@ -13,7 +13,6 @@ def read_czi(path):
     """
 
     reader = CziReader(path)
-    print(reader.scenes)
     if len(reader.scenes) > 1:
         show_warning("Multiple scenes found | Only the first scene will be loaded.")
         data = reader.data[0]

@@ -430,7 +430,7 @@ class PSFRenderEngine:
         if not self._has_nan_fwhm():
             self._add_axis_aligned_ellipsoid() # Adds a grey ellipsoid from the fwhm of yx and z fits
 
-        self._add_zyx_ellipsoid() # Adds a blue ellipsoid from covariance
+        # self._add_zyx_ellipsoid() # Adds a blue ellipsoid from covariance
         self._add_principal_components_annotons() # Adds axes annotation next to the ellipsoid figure, from something from the fit idk.
 
     def _add_axis_aligned_ellipsoid(self):

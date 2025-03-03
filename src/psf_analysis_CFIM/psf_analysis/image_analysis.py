@@ -10,6 +10,7 @@ from psf_analysis_CFIM.error_widget.error_display_widget import ErrorDisplayWidg
 def analyze_image(img_layer, error_widget: ErrorDisplayWidget, widget_settings: Dict[str, any], num_bins=8):
 
     img_data = img_layer.data
+    settings = widget_settings
 
     if img_data is None:
         raise ValueError("Image data cannot be None")
@@ -43,29 +44,28 @@ def analyze_image(img_layer, error_widget: ErrorDisplayWidget, widget_settings: 
     max_percentage = max_pixels / total_pixels * 100
 
     # Error handling
-    error_handling_intensity(min_percentage, max_percentage, max_val, error_widget)
+    error_handling_intensity(min_percentage, max_percentage, max_val, error_widget, settings["intensity_settings"])
     # report_noise(img_data, error_widget) # TODO: Make this work better before enabling
     report_z_spacing(img_layer, error_widget, widget_settings)
 
-    # Store statistics in dictionary
-    stats = {
-        f"0 (min)": f"{min_percentage:.2f}%",
-    }
+    # # Store statistics in dictionary
+    # stats = {
+    #     f"0 (min)": f"{min_percentage:.2f}%",
+    # }
+    #
+    # for i in range(len(hist)):
+    #     stats[f"{bin_edges[i]:.1f}-{bin_edges[i + 1]:.1f}"] = f"{percentages[i]:.2f}%"
+    #
+    # stats[f"{max_val:.1f} (max)"] = f"{max_percentage:.2f}%"
+    #
+    # return stats
 
-    for i in range(len(hist)):
-        stats[f"{bin_edges[i]:.1f}-{bin_edges[i + 1]:.1f}"] = f"{percentages[i]:.2f}%"
-
-    stats[f"{max_val:.1f} (max)"] = f"{max_percentage:.2f}%"
-
-    return stats
-
-def error_handling_intensity(min_percentage, max_percentage, max_val, error_widget):
+def error_handling_intensity(min_percentage, max_percentage, max_val, error_widget, settings):
     # TODO: make constants dependent on config file
-    lower_warning_percent = 0.08
-    lower_error_percent = 0.12
-    upper_warning_percent = 0.01
-    upper_error_percent = 0.08
-
+    lower_warning_percent = settings["lower_warning_percent"]
+    lower_error_percent = settings["lower_error_percent"]
+    upper_warning_percent = settings["upper_warning_percent"]
+    upper_error_percent = settings["upper_error_percent"]
 
     # Cast warnings / errors based on constants
     if min_percentage > lower_error_percent:
@@ -81,13 +81,13 @@ def error_handling_intensity(min_percentage, max_percentage, max_val, error_widg
 
     # Checks TODO: A whole section for analysing PSF quality
 
-def report_noise(img_data, error_widget):
+def report_noise(img_data, error_widget, settings):
     standard_deviation = np.std(img_data)
     snr = _calculate_snr(img_data)
 
     # TODO: config file
-    high_noise_threshold = 120  # Example threshold for high noise
-    low_snr_threshold = 10  # Example threshold for low SNR in dB
+    high_noise_threshold = settings["high_noise_threshold"]  # Example threshold for high noise
+    low_snr_threshold = settings["low_snr_threshold"]  # Example threshold for low SNR in dB
 
     print(f"Standard deviation: {standard_deviation:.2f} | SNR: {snr:.2f} dB")
     # Imagine not using elif. SMH.
