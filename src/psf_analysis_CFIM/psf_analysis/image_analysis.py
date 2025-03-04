@@ -46,7 +46,7 @@ def analyze_image(img_layer, error_widget: ErrorDisplayWidget, widget_settings: 
     # Error handling
     error_handling_intensity(min_percentage, max_percentage, max_val, error_widget, settings["intensity_settings"])
     # report_noise(img_data, error_widget) # TODO: Make this work better before enabling
-    report_z_spacing(img_layer, error_widget, widget_settings)
+    epected_z_spacing = report_z_spacing(img_layer, error_widget, widget_settings)
 
     # # Store statistics in dictionary
     # stats = {
@@ -59,6 +59,7 @@ def analyze_image(img_layer, error_widget: ErrorDisplayWidget, widget_settings: 
     # stats[f"{max_val:.1f} (max)"] = f"{max_percentage:.2f}%"
     #
     # return stats
+    return epected_z_spacing
 
 def error_handling_intensity(min_percentage, max_percentage, max_val, error_widget, settings):
     # TODO: make constants dependent on config file
@@ -124,6 +125,7 @@ def report_z_spacing(img_layer, error_widget: ErrorDisplayWidget, widget_setting
         error_widget.add_error(f"Z-spacing is too large | Z-spacing: {z_spacing:.2f} nm")
     elif z_spacing > expected_bead_z_size / 3.5:
         error_widget.add_warning(f"Z-spacing is larger than expected | Z-spacing: {z_spacing:.2f} nm")
+    return expected_bead_z_size
 
 
 def _calculate_snr(img_data: np.ndarray) -> float:

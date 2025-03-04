@@ -32,3 +32,10 @@ This edition includes the following additional features:
 - **Error Handling**: Less likely to crash. errors points can be seen in viewer | Error UI
 - **Bug fixes**: Fixes things like borders and other issues.
 - Not made for file types other than .CZI for now
+
+
+## Known Issues
+
+- for autofilling, only .czi files are supported
+- Paths including non-ASCII characters, like æøå cause unintended behavior
+- The output.czv file is comma seperated with dot as decimal seperator, this might cause issue importing in Excel.

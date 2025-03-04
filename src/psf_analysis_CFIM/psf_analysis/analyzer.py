@@ -111,6 +111,7 @@ class Analyzer:
         extended_results["yx_spacing"] = self._parameters.spacing[1]
         extended_results["z_spacing"] = self._parameters.spacing[0]
         extended_results["version"] = self._parameters.version
+
         return extended_results
 
     def _add(self, result: dict, summary_fig: ArrayLike):
@@ -198,7 +199,7 @@ class Analyzer:
         )
         return measurement_stack
 
-    def _build_dataframe(self):
+    def  _build_dataframe(self):
         return pd.DataFrame(
             {
                 "ImageName": self._results["image_name"],
@@ -239,8 +240,8 @@ class Analyzer:
                     np.array(self._results["zyx_amp"])
                     / np.array(self._results["zyx_bg"])
                 ).tolist(),
-                "XYpixelsize": self._results["yx_spacing"],
-                "Zspacing": self._results["z_spacing"],
+                "xy_pixelsize": self._results["yx_spacing"],# Changed these two from XYspacing and Zspacing
+                "z_spacing": self._results["z_spacing"],
                 "cov_xx_3D": self._results["zyx_cxx"],
                 "cov_xy_3D": self._results["zyx_cyx"],
                 "cov_xz_3D": self._results["zyx_czx"],

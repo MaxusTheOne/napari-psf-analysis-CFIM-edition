@@ -1,3 +1,4 @@
+import os
 import pathlib
 from datetime import datetime
 from importlib.metadata import version
@@ -37,6 +38,7 @@ from psf_analysis_CFIM.psf_analysis.analyzer import Analyzer
 from psf_analysis_CFIM.psf_analysis.image_analysis import analyze_image
 from psf_analysis_CFIM.psf_analysis.parameters import PSFAnalysisInputs
 from psf_analysis_CFIM.psf_analysis.psf import PSF
+from psf_analysis_CFIM.report_widget.report_widget import ReportWidget
 
 
 def get_microscopes(psf_settings_path):
@@ -95,7 +97,7 @@ class PsfAnalysis(QWidget):
         napari_viewer.layers.events.removed.connect(self._layer_removed)
         napari_viewer.layers.selection.events.changed.connect(self._on_selection)
 
-        self.settingsWidget = SettingsWidget(parent=self)
+        self.settings_Widget = SettingsWidget(parent=self)
         self.summary_figs = None
         self.results = None
         self.warnings = []
@@ -123,10 +125,11 @@ class PsfAnalysis(QWidget):
 
         self._add_interaction_buttons()
 
+        self.report_widget = ReportWidget(parent=self)
         self._add_save_dialog()
 
 
-        self.layout().addWidget(self.settingsWidget.init_ui())
+        self.layout().addWidget(self.settings_Widget.init_ui())
 
         self.current_img_index = -1
         self.cbox_img.currentIndexChanged.connect(self._img_selection_changed)
@@ -135,7 +138,7 @@ class PsfAnalysis(QWidget):
         self.use_config()
 
     def use_config(self):
-        settings = self.settingsWidget.settings
+        settings = self.settings_Widget.settings
         ui_settings = settings["ui_settings"]
         settings_keys_to_widget_attributes = {
             "output_folder": "save_dir_line_edit",
@@ -146,14 +149,17 @@ class PsfAnalysis(QWidget):
             "box_size_z": "psf_z_box_size",
             "ri_mounting_medium": "mounting_medium",
         }
-        if settings:
-            for key, value in settings.items():
-                if key in settings_keys_to_widget_attributes.keys():
-                    getattr(self, settings_keys_to_widget_attributes[key]).setText(value)
-        if ui_settings:
-            for key, value in ui_settings.items():
-                if key in ui_settings_keys_to_widget_attributes.keys():
-                    getattr(self, ui_settings_keys_to_widget_attributes[key]).setValue(value)
+        try:
+            if settings:
+                for key, value in settings.items():
+                    if key in settings_keys_to_widget_attributes.keys():
+                        getattr(self, settings_keys_to_widget_attributes[key]).setText(value)
+            if ui_settings:
+                for key, value in ui_settings.items():
+                    if key in ui_settings_keys_to_widget_attributes.keys():
+                        getattr(self, ui_settings_keys_to_widget_attributes[key]).setValue(value)
+        except AttributeError as e:
+            print(f"Error in use_config: {e}")
 
 
     def _add_logo(self):
@@ -200,29 +206,12 @@ class PsfAnalysis(QWidget):
         self._viewer.add_points(points, size=size,scale=scale, name=name,  face_color="cyan")
 
     def _add_save_dialog(self):
-        pane = QGroupBox(parent=self)
-        pane.setLayout(QFormLayout())
-        dir_selection_dialog = QWidget(parent=self)
-        dir_selection_dialog.setLayout(QHBoxLayout())
-        self.save_path = QFileDialog()
-        self.save_path.setFileMode(QFileDialog.DirectoryOnly)
-        self.save_path.setDirectory(
-            str(get_output_path(get_psf_analysis_settings_path()))
-        )
-        self.save_dir_line_edit = QLineEdit()
-        self.save_dir_line_edit.setText(self.save_path.directory().path())
-        choose_dir = QPushButton("...")
-        choose_dir.clicked.connect(self.select_save_dir)
-        dir_selection_dialog.layout().addWidget(
-            QLabel("Save Dir", dir_selection_dialog)
-        )
-        dir_selection_dialog.layout().addWidget(self.save_dir_line_edit)
-        dir_selection_dialog.layout().addWidget(choose_dir)
-        pane.layout().addRow(dir_selection_dialog)
-        self.save_button = QPushButton("Save Measurements")
-        self.save_button.setEnabled(True)
-        self.save_button.clicked.connect(self.save_measurements)
-        pane.layout().addRow(self.save_button)
+        self.report_widget.set_title("PSF Analysis Report") # TODO: Put this in settings
+
+        pane = self.report_widget.init_ui()
+        self.save_dir_line_edit = self.report_widget.save_dir_line_edit # Exposing this for use in use_config
+        self.save_path = self.report_widget.save_path
+
         self.layout().addWidget(pane)
 
     def _add_interaction_buttons(self):
@@ -578,6 +567,9 @@ class PsfAnalysis(QWidget):
                 averaged_psf = PSF(image=averaged_bead)
 
                 averaged_psf.analyze()
+
+                self.report_widget.add_bead_stats_psf(averaged_psf.get_record(), title="Average from image")
+
                 averaged_summary_image = averaged_psf.get_summary_image(
                     date=analyzer.get_date(),
                     version=analyzer.get_version(),
@@ -645,11 +637,12 @@ class PsfAnalysis(QWidget):
     def _validate_image(self):
         try:
             self.error_widget.clear()
-            widget_settings = {**self.settingsWidget.settings["image_analysis_settings"], **{
+            widget_settings = {**self.settings_Widget.settings["image_analysis_settings"], **{
                 "RI_mounting_medium": self.mounting_medium.value(), "Emission": self.emission.value(),
                 "NA": self.na.value()}}
-            analyze_image(self._get_current_img_layer(), self.error_widget,
+            expected_z_spacing = analyze_image(self._get_current_img_layer(), self.error_widget,
                           widget_settings=widget_settings)
+            self.psf_z_box_size.setValue(int(expected_z_spacing) * 3)
 
         except Exception as e:
             print("Error in image analysis: ", e)
@@ -765,10 +758,32 @@ class PsfAnalysis(QWidget):
             show_info("Please select the 'Analyzed Beads' layer.")
 
     def save_measurements(self):
-        out_path = self.settingsWidget.settings["output_folder"]
+        if self.results is None:
+            show_info("No results to save.")
+            return
+        out_path = self.settings_Widget.settings["output_folder"]
+        os.makedirs(out_path, exist_ok=True)
         for i, row in self.results.iterrows():
             save_path = join(out_path, basename(row["PSF_path"]))
             imsave(save_path, self.summary_figs[i])
+
+        formatted_bead = {
+            "z_fwhm": self.results["FWHM_1D_Z"].mean(),
+            "y_fwhm": self.results["FWHM_2D_Y"].mean(),
+            "x_fwhm": self.results["FWHM_2D_X"].mean(),
+        }
+        self.report_widget.add_bead_stats(formatted_bead, title="Average from measurements")
+        variation = {
+            "z_fwhm_max": self.results["FWHM_1D_Z"].max(),
+            "z_fwhm_min": self.results["FWHM_1D_Z"].min(),
+            "y_fwhm_max": self.results["FWHM_2D_Y"].max(),
+            "y_fwhm_min": self.results["FWHM_2D_Y"].min(),
+            "x_fwhm_max": self.results["FWHM_2D_X"].max(),
+            "x_fwhm_min": self.results["FWHM_2D_X"].min(),
+        }
+        self.report_widget.set_bead_variation(variation)
+
+
 
         if self.temperature.text() != "":
             self.results["Temperature"] = self.temperature.value()
@@ -821,6 +836,6 @@ class PsfAnalysis(QWidget):
             ),
             index=False,
         )
-
+        self.report_widget.create_pdf(path=self.settings_Widget.settings["output_folder"])
         show_info("Saved results.")
 

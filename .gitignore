@@ -4,7 +4,7 @@
 image_intensity_stats.csv
 local_test.py
 cleanup.py
-
+dev_output/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
