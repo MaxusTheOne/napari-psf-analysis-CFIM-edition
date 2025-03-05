@@ -35,8 +35,6 @@ This edition includes the following additional features:
 - **CZI Reader**: Adds support for reading CZI image files.
 - **Error Handling**: Less likely to crash. errors points can be seen in viewer | Error UI.
 - **Bug fixes**: Fixes bugs involving zyx boxes, loading bar and other issues.
-- Not made for file types other than .CZI for now
-
 
 ## Known Issues
 

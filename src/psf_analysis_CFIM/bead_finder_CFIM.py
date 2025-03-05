@@ -8,14 +8,16 @@ from skimage.feature import peak_local_max
 class BeadFinder:
     def __init__(self, image, scale: tuple, bounding_box: tuple):
         self._debug = True
-        self.image = image
-        self.scale = scale
-        self._border = 5
-        self.yx_border_padding = 2
 
         self.bounding_box_um = np.array(bounding_box) / 1000
         self.bounding_box_px = np.array(self.bounding_box_um) / np.array(scale)
         self.max_bead_dist = np.linalg.norm(np.array(self.bounding_box_px)) / 2
+
+        self.image = image
+        self.scale = scale
+
+        self.yx_border_padding = 2
+
     """
     A class to find beads in a 3D image stack.
 
@@ -44,7 +46,7 @@ class BeadFinder:
             endc = '\033[0m'
 
             print(
-                f"Beads {green}passed{endc} / {yellow}discarded{endc} \nmaxima: {green}{len(yx_beads)}{endc} / {yellow}{len(discarded_xy)}{endc} "
+                f"Beads {green}passed{endc} / {yellow}discarded{endc} \nxy border: {green}{len(yx_beads)}{endc} / {yellow}{len(discarded_xy)}{endc} "
                 f"| z border: {green}{len(zyx_beads)}{endc} / {yellow}{len(zyx_discarded_beads)}{endc} | neighbor dist: {green}{len(beads)}{endc} / {yellow}{len(discarded_beads_by_neighbor_dist)}{endc}")
             print(f"Total: {green}{len(beads)}{endc} / {yellow}{len(discarded_beads)}{endc}")
 
@@ -64,8 +66,9 @@ class BeadFinder:
 
     # TODO: Make threshold a setting with option for rel/abs
     def _maxima(self, image) -> (List[Tuple], List[Tuple]):
-        yx_border = self._border + self.yx_border_padding
-        xy_bead_positions = peak_local_max(image, min_distance=2, threshold_abs=3000, exclude_border=0)
+
+        yx_border = (self.bounding_box_px[1] / 2) + self.yx_border_padding
+        xy_bead_positions = peak_local_max(image, min_distance=2, threshold_rel=0.3, exclude_border=0)
         xy_bead_positions = [(y, x) for (y, x) in xy_bead_positions]
         in_border_xy_bead_positions = [bead for bead in xy_bead_positions if yx_border < bead[0] < self.image.shape[1] - yx_border and yx_border < bead[1] < self.image.shape[2] - yx_border]
         discarded_beads = [bead for bead in xy_bead_positions if bead not in in_border_xy_bead_positions]
@@ -75,31 +78,37 @@ class BeadFinder:
     def _find_bead_positions(self, xy_beads, no_filter=False):
         bead_pos = []
         discarded_beads = []
+        z_border = self.bounding_box_px[0] / 2
         for (y, x) in xy_beads:
             z_profile = self.image[:, y, x]
 
             z_profile_median = self._median_filter(z_profile, size=2)
 
             z = np.argmax(z_profile_median)
-            if 0 + self._border < z < self.image.shape[0] - self._border or no_filter:
+            if 0 + z_border < z < self.image.shape[0] - z_border or no_filter:
                 bead_pos.append((z, y, x))
             else:
                 discarded_beads.append((z, y, x))
 
         return bead_pos, discarded_beads
 
-    def filter_beads_by_neighbour_distance(self, beads): # TODO: Change to box filter instead of ball
+    def filter_beads_by_neighbour_distance(self, beads):
         discarded_beads = []
         valid_beads = []
+        half_box = self.bounding_box_px / 2.0
+
         for bead in beads:
-            smallest_distance = np.inf
+            is_valid = True
             for neighbour in beads:
                 if bead == neighbour:
                     continue
-                distance = np.linalg.norm(np.array(bead) - np.array(neighbour))
-                if distance < smallest_distance:
-                    smallest_distance = distance
-            if smallest_distance > self.max_bead_dist:
+                # Check if each coordinate of neighbour is within bead \+\/\- half_box
+                if (bead[0] - half_box[0] <= neighbour[0] <= bead[0] + half_box[0] and
+                        bead[1] - half_box[1] <= neighbour[1] <= bead[1] + half_box[1] and
+                        bead[2] - half_box[2] <= neighbour[2] <= bead[2] + half_box[2]):
+                    is_valid = False
+                    break
+            if is_valid:
                 valid_beads.append(bead)
             else:
                 discarded_beads.append(bead)
