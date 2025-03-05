@@ -1,3 +1,4 @@
+import json
 import subprocess
 import napari
 import argparse
@@ -30,11 +31,17 @@ def launch_napari():
         exit(1)
 
 
-
-def launch_napari_dev_mode(czi_file=None):
+# TODO: Create a github actions script for deployment
+def launch_napari_dev_mode(czi_file=None, points=None):
     """
-    Launch Napari in dev mode:
-    - czi: loads a .czi file with the given path
+        Launch Napari in dev mode:
+        - czi: loads a .czi file with the given path
+        - points: JSON string representing points coordinates e.g. "[[z,y,x],[z,y,x]]"
+
+        Current issues:
+        - dev mode messes with napari opening. Causing incorrect window size while the program still thinks it's full screen. Only visual.
+        - points flag changes napari cord scale. Causing wrong focus after psf analysis. Only visual, the data is correct.
+            - Likely due to the mismatch between the nm scale of the image and the pixel scale of the points.
     """
     print("Launching Napari in dev mode...")
     viewer = napari.Viewer()
@@ -47,11 +54,20 @@ def launch_napari_dev_mode(czi_file=None):
     except ValueError:
         print("Plugin 'psf-analysis-CFIM' not found or failed to load.")
 
-    # Improvement would be a better event here. Can't find a better one
-    if czi_file:
+    if czi_file or points:
         def on_status_change(event):
             viewer.events.disconnect(on_status_change)
-            load_czi_file(viewer, czi_file)
+            if czi_file:
+                load_czi_file(viewer, czi_file)
+            if points and czi_file:
+                try:
+                    print("Adding points")
+                    czi_scale = viewer.layers[0].scale
+                    points_list = json.loads(points)
+                    viewer.add_points(points_list, name="Points Layer", scale=czi_scale)
+                except json.JSONDecodeError:
+                    print(
+                        "Failed to decode the points argument. Please provide a valid JSON string, e.g. \"[[z,y,x],[z,y,x]]\".")
 
         viewer.events.connect(on_status_change)
 
@@ -67,6 +83,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--czi", type=str, help="Path to a .czi file to load into Napari."
     )
+    parser.add_argument(
+        "--points", type=str, help="Points coordinates in JSON format: \"[[z,y,x],[z,y,x]]\"."
+    )
 
     args = parser.parse_args()
 
@@ -74,7 +93,7 @@ if __name__ == "__main__":
     # Launch the appropriate mode
     if args.dev:
         # Run the custom dev mode setup
-        launch_napari_dev_mode(args.czi)
+        launch_napari_dev_mode(czi_file=args.czi, points=args.points)
     else:
         # Install the plugin
         install_plugin()

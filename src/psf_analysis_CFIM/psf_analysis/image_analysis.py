@@ -17,7 +17,7 @@ def analyze_image(img_layer, error_widget: ErrorDisplayWidget, widget_settings: 
     if not isinstance(img_data, np.ndarray):
         raise TypeError("Image data must be a NumPy array")
 
-    # Determine max intensity value
+    # Determine max intensity value from image data type
     if np.issubdtype(img_data.dtype, np.integer):
         max_val = np.iinfo(img_data.dtype).max
     else:
@@ -31,6 +31,7 @@ def analyze_image(img_layer, error_widget: ErrorDisplayWidget, widget_settings: 
 
     if total_pixels == 0:
         raise ValueError("Image contains no pixels to analyze.")
+
 
     # Filter out min and max values
     img_filtered = img_data[(img_data > 0) & (img_data < max_val)]
@@ -46,7 +47,7 @@ def analyze_image(img_layer, error_widget: ErrorDisplayWidget, widget_settings: 
     # Error handling
     error_handling_intensity(min_percentage, max_percentage, max_val, error_widget, settings["intensity_settings"])
     # report_noise(img_data, error_widget) # TODO: Make this work better before enabling
-    epected_z_spacing = report_z_spacing(img_layer, error_widget, widget_settings)
+    expected_z_spacing = report_z_spacing(img_layer, error_widget, widget_settings)
 
     # # Store statistics in dictionary
     # stats = {
@@ -59,7 +60,7 @@ def analyze_image(img_layer, error_widget: ErrorDisplayWidget, widget_settings: 
     # stats[f"{max_val:.1f} (max)"] = f"{max_percentage:.2f}%"
     #
     # return stats
-    return epected_z_spacing
+    return expected_z_spacing
 
 def error_handling_intensity(min_percentage, max_percentage, max_val, error_widget, settings):
     # TODO: make constants dependent on config file

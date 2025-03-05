@@ -37,6 +37,7 @@ def extract_key_metadata(reader):
         # You can add any other top-level keys Napari supports, e.g. "name", "colormap", etc.
     }
 
+    # TODO: Remove the renaming of the keys and parse them in the plugin.
     # Define the mapping between our desired custom keys and the XML tag names.
     key_mapping = {
         "NA": "LensNA",

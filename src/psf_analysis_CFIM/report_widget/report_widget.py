@@ -1,11 +1,10 @@
 import os
 
 from reportlab.lib import colors
-from PyQt5.QtWidgets import QGroupBox, QFormLayout, QWidget, QHBoxLayout, QFileDialog, QLineEdit, QPushButton, QLabel
+from qtpy.QtWidgets import QGroupBox, QFormLayout, QWidget, QHBoxLayout, QFileDialog, QLineEdit, QPushButton, QLabel
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import inch
-from reportlab.pdfgen import canvas
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 
 
@@ -63,6 +62,8 @@ class ReportWidget(QWidget):
         self._bead_keys = ["z_fwhm", "y_fwhm", "x_fwhm"]
         self.save_dir_line_edit = None
         self.save_path = None
+
+        # Don't ask why I made these into their own types, I just did.
         self.warnings = WarningMessageList()
         self.errors = ErrorMessageList()
 

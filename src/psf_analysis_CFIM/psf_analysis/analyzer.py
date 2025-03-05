@@ -14,7 +14,7 @@ from psf_analysis_CFIM.psf_analysis.psf import PSF
 
 
 class Analyzer:
-    def __init__(self, parameters: PSFAnalysisInputs):
+    def __init__(self, parameters: PSFAnalysisInputs, settings: dict = {"wavelength_color": "red"}):
         self._parameters = parameters
         bead_extractor = BeadExtractor(
             image=Calibrated3DImage(
@@ -22,6 +22,7 @@ class Analyzer:
             ),
             patch_size=parameters.patch_size,
         )
+        self._wavelength_color = settings["wavelength_color"]
         self._invalid_beads_index = []
         self._beads = bead_extractor.extract_beads(points=self._parameters.point_data)
 
@@ -57,6 +58,7 @@ class Analyzer:
                         date=self._parameters.date,
                         version=self._parameters.version,
                         dpi=self._parameters.dpi,
+                        ellipsoid_color=self._wavelength_color,
                     ),
                 )
             except InvalidShapeError as e:

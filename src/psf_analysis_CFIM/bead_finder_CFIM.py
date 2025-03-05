@@ -62,7 +62,7 @@ class BeadFinder:
     def _median_filter(self, image, size=3):
         return median_filter(image, size=size)
 
-    # TODO: Dynamically find threshold or make it a parameter/config
+    # TODO: Make threshold a setting with option for rel/abs
     def _maxima(self, image) -> (List[Tuple], List[Tuple]):
         yx_border = self._border + self.yx_border_padding
         xy_bead_positions = peak_local_max(image, min_distance=2, threshold_abs=3000, exclude_border=0)
@@ -88,7 +88,7 @@ class BeadFinder:
 
         return bead_pos, discarded_beads
 
-    def filter_beads_by_neighbour_distance(self, beads):
+    def filter_beads_by_neighbour_distance(self, beads): # TODO: Change to box filter instead of ball
         discarded_beads = []
         valid_beads = []
         for bead in beads:

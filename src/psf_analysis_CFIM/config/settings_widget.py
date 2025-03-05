@@ -4,8 +4,8 @@ import subprocess
 import sys
 
 import yaml
-from PyQt5.QtWidgets import QGroupBox, QWidget, QVBoxLayout, QPushButton
-from appdirs import user_data_dir
+from qtpy.QtWidgets import QGroupBox, QWidget, QVBoxLayout, QPushButton
+
 from napari.settings import get_settings
 
 psf_default_settings = {

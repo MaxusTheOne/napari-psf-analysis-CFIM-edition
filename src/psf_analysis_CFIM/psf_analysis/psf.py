@@ -43,9 +43,10 @@ class PSFRenderEngine:
     _ax_3d: Axes = None
     _ax_3d_text: Axes = None
 
-    def __init__(self, psf_image: Calibrated3DImage, psf_record: PSFRecord):
+    def __init__(self, psf_image: Calibrated3DImage, psf_record: PSFRecord, ellipsoid_color: str):
         self.psf_image = psf_image
         self.psf_record = psf_record
+        self.ellipsoid_color = ellipsoid_color
 
     def _build_layout(self, dpi: int = 300) -> None:
         import matplotlib.pyplot as plt
@@ -448,10 +449,10 @@ class PSFRenderEngine:
             spacing=self.psf_image.spacing,
         )
         self._ax_3d.plot_surface(
-            *base_ell, rstride=2, cstride=2, color="white", antialiased=True, alpha=1
+            *base_ell, rstride=2, cstride=2, color="grey", antialiased=True, alpha=1
         )
         self._ax_3d.plot_wireframe(
-            *base_ell, rstride=3, cstride=3, color="black", antialiased=True, alpha=0.5
+            *base_ell, rstride=3, cstride=3, color=self.ellipsoid_color, antialiased=True, alpha=0.5
         )
 
         self._ax_3d.contour(
@@ -707,9 +708,10 @@ class PSF:
         version: str = None,
         dpi: int = 300,
         *,
-        top_left_message: str = None
+        top_left_message: str = None,
+        ellipsoid_color: str = "black",
     ) -> ArrayLike:
-        engine = PSFRenderEngine(psf_image=self.image, psf_record=self.psf_record)
+        engine = PSFRenderEngine(psf_image=self.image, psf_record=self.psf_record, ellipsoid_color=ellipsoid_color)
         return engine.render(date=date, version=version, dpi=dpi, top_left_message=top_left_message)
 
     def get_summary_dict(self) -> dict:

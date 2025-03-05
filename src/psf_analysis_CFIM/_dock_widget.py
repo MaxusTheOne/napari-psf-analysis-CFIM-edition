@@ -7,7 +7,7 @@ from os.path import basename, dirname, exists, getctime, join
 import napari.layers
 import numpy as np
 import yaml
-from PyQt5.QtWidgets import QSizePolicy, QLayout
+from qtpy.QtWidgets import QLayout
 from napari import viewer
 from napari._qt.qthreading import FunctionWorker, thread_worker
 from napari.settings import get_settings
@@ -30,10 +30,12 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 from skimage.io import imsave
+from urllib3.connectionpool import xrange
 
 from psf_analysis_CFIM.bead_finder_CFIM import BeadFinder
 from psf_analysis_CFIM.config.settings_widget import SettingsWidget
 from psf_analysis_CFIM.error_widget.error_display_widget import ErrorDisplayWidget, report_error, report_warning
+from psf_analysis_CFIM.library_workarounds.RangeDict import RangeDict
 from psf_analysis_CFIM.psf_analysis.analyzer import Analyzer
 from psf_analysis_CFIM.psf_analysis.image_analysis import analyze_image
 from psf_analysis_CFIM.psf_analysis.parameters import PSFAnalysisInputs
@@ -172,7 +174,7 @@ class PsfAnalysis(QWidget):
         pane = QGroupBox(parent=self)
         pane.setLayout(QFormLayout())
         self.find_beads_button = QPushButton("Find Beads")
-        self.find_beads_button.setEnabled(False)
+        self.find_beads_button.setEnabled(True)
         self.find_beads_button.clicked.connect(self.find_beads)
         pane.layout().addRow(self.find_beads_button)
         self.analyse_img_button = QPushButton("Re-Analyse Image")
@@ -187,6 +189,8 @@ class PsfAnalysis(QWidget):
         report_error("Test Error",(20,20,20))
 
     def find_beads(self):
+        self._create_bead_finder()
+
         scale= self.bead_finder.get_scale()
 
         beads, discarded_beads = self.bead_finder.find_beads()
@@ -455,7 +459,6 @@ class PsfAnalysis(QWidget):
                     self.fill_settings_boxes(layer)
                     self.error_widget.set_img_index(self.current_img_index)
                     self._validate_image()
-                    self._create_bead_finder(layer)
                     break
 
     def fill_settings_boxes(self, layer):
@@ -484,11 +487,11 @@ class PsfAnalysis(QWidget):
         except KeyError as e:
             print(f"Missing metadata for settings: {e} and possible more")
 
-    def _create_bead_finder(self, layer):
+    def _create_bead_finder(self):
         if self.bead_finder is None:
             self.find_beads_button.setEnabled(True)
-        else:
-            self.bead_finder.close()
+
+        layer = self._viewer.layers[self.cbox_img.currentText()]
         self.bead_finder = BeadFinder(layer.data, layer.scale, bounding_box=(self.psf_z_box_size.value(), self.psf_yx_box_size.value(), self.psf_yx_box_size.value()))
 
 
@@ -534,6 +537,10 @@ class PsfAnalysis(QWidget):
 
         self._setup_progressbar(point_data)
 
+        analyzer_settings = {
+            "wavelength_color": self.color_from_emission_wavelength(),
+        }
+
         analyzer = Analyzer(parameters=PSFAnalysisInputs(
             microscope=self._get_microscope(),
             magnification=self.magnification.value(),
@@ -546,23 +553,18 @@ class PsfAnalysis(QWidget):
             dpi=int(self.summary_figure_dpi.currentText()),
             date=datetime(*self.date.date().getDate()).strftime("%Y-%m-%d"),
             version=version("psf_analysis_CFIM")
-        ))
+            ),
+            settings=analyzer_settings
+        )
 
+        # Note: Why is it called measurement_stack? It's a stack of summary images.
         def _on_done(result):
             if result is not None:
+                # unpacks the result from analyzer. Should contain a stack of summary images and the scale.
                 measurement_stack, measurement_scale = result
-                self._viewer.add_image(
-                    measurement_stack,
-                    name="Analyzed Beads",
-                    interpolation2d="bicubic",
-                    rgb=True,
-                    scale=measurement_scale,
-                )
-                self._viewer.dims.set_point(0, 0)
-                self._viewer.reset_view()
                 self.summary_figs = measurement_stack
 
-                # CFIM :) - Display a PSF of the average bead
+                # Creates an image of the average bead, runs the PSF analysis on it and creates summary image.
                 averaged_bead = analyzer.get_averaged_bead()
                 averaged_psf = PSF(image=averaged_bead)
 
@@ -575,24 +577,28 @@ class PsfAnalysis(QWidget):
                     version=analyzer.get_version(),
                     dpi=analyzer.get_dpi(),
                     top_left_message=f"Average PSF of {len(measurement_stack)} beads",
+                    ellipsoid_color=self.color_from_emission_wavelength()
                 )
-                display_averaged_measurement_stack(self._viewer, averaged_summary_image, measurement_scale)
+
+                # Combines the summary image from average bead with the summary image stack from the entire psf analysis.
+                averaged_summary_image_expanded = np.expand_dims(averaged_summary_image, axis=0)
+                combined_stack = np.concatenate((averaged_summary_image_expanded, measurement_stack), axis=0)
+                display_measurement_stack(combined_stack, measurement_scale)
 
             _reset_state()
 
-        def display_averaged_measurement_stack(viewer, averaged_measurement, measurement_scale):
+        def display_measurement_stack(averaged_measurement, measurement_scale):
             """Display the averaged measurement stack in the viewer."""
-            averaged_measurement = averaged_measurement[np.newaxis, ...]
-            viewer.add_image(
+            self._viewer.add_image(
                 averaged_measurement,
-                name="Averaged PSF",
+                name="PSF images",
                 interpolation2d="bicubic",
                 rgb=True,
                 scale=measurement_scale,
             )
-            viewer.dims.set_point(0, 0)
-            viewer.reset_view()
-
+            # Resets napari viewer to 0.0
+            self._viewer.dims.set_point(0, 0)
+            self._viewer.reset_view()
 
         def _update_progress(progress: int):
             self.progressbar.setValue(progress)
@@ -633,6 +639,22 @@ class PsfAnalysis(QWidget):
 
         self.extract_psfs.setEnabled(False)
         self.cancel.setEnabled(True)
+
+    def color_from_emission_wavelength(self):
+        """
+            Returns a color based on the emission wavelength in nm.
+        """
+        # Self-implemented range dict :) # Maybe move the dict elsewhere, since it gets created every time.
+        wavelength_color_range_dict = RangeDict(
+            [(380, 450, "Violet"),
+             (450, 485, "Blue"),
+             (485, 500, "Cyan"),
+             (500, 565, "Green"),
+             (565, 590, "Yellow"),
+             (590, 625, "Orange"),
+             (625, 740, "Red")])
+        color = wavelength_color_range_dict[self.emission.value()]
+        return color
 
     def _validate_image(self):
         try:

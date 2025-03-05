@@ -7,9 +7,17 @@ import numpy as np
 
 def read_czi(path):
     """
-    Loads a .czi file and return the data in a proper callable format.
+        Loads a .czi file and return the data in a proper callable format.
+        Made because I could not get a direct reader to work with napari.
 
-    Incompatibility with other file formats stems from the metadata processor.
+        Incompatibility with other file formats stems from the metadata processor renaming keys.
+
+        Parameters:
+            path: str -> Path to the .czi file.
+
+        Returns:
+            callable -> A callable that returns a list of tuples with the data, metadata and layer type.
+                        Required format for napari readers.
     """
 
     reader = CziReader(path)
