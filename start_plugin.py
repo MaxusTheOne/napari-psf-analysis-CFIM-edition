@@ -1,8 +1,11 @@
 import json
+import os
 import subprocess
 import napari
 import argparse
 import faulthandler
+
+
 
 
 def install_plugin():
@@ -44,7 +47,18 @@ def launch_napari_dev_mode(czi_file=None, points=None):
             - Likely due to the mismatch between the nm scale of the image and the pixel scale of the points.
     """
     print("Launching Napari in dev mode...")
+
+    # Signal debug mode
+    os.environ["PSF_ANALYSIS_CFIM_DEBUG"] = "0"
+    is_debug = "1" == os.environ.get("PSF_ANALYSIS_CFIM_DEBUG")
+    print(f"Debug mode: {is_debug}")
+
     viewer = napari.Viewer()
+    from psf_analysis_CFIM.debug.debug import DebugClass # Causes crash if imported before napari.Viewer() | Due to qt event loop
+
+    if is_debug:
+        debug = DebugClass(viewer)
+        print(f"Debug class initialized. | {debug.say_hello()}")
 
 
     # Activate your plugin (psf_analysis_CFIM)
@@ -58,7 +72,11 @@ def launch_napari_dev_mode(czi_file=None, points=None):
         def on_status_change(event):
             viewer.events.disconnect(on_status_change)
             if czi_file:
-                load_czi_file(viewer, czi_file)
+                try:
+                    load_czi_file(viewer, czi_file)
+                except FileNotFoundError as e:
+                    print(f"Failed to load czi file {czi_file}. Error: {e}")
+
             if points and czi_file:
                 try:
                     print("Adding points")

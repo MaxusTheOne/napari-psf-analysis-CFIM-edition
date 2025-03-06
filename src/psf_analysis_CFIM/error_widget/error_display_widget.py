@@ -39,7 +39,8 @@ def pixmap_to_html(pixmap, width=16, height=16):
     b64_str = ba.toBase64().data().decode("ascii")
     return f'<img src="data:image/png;base64,{b64_str}" width="{width}" height="{height}">'
 
-
+def report_error_box(corner, shape):
+    error_emitter.errorOccurredBox.emit(corner, shape)
 
 def report_error(message="", point=()):
     error_emitter.errorOccurred.emit(message, point)
@@ -49,6 +50,7 @@ def report_warning(message="", point=()):
 
 class ErrorEmitter(QObject):
     errorOccurred = Signal(str, tuple)
+    errorOccurredBox = Signal(tuple, tuple)
     warningOccurred = Signal(str, tuple)
 
 
@@ -57,12 +59,18 @@ error_emitter = ErrorEmitter()
 
 class ErrorDisplayWidget(QWidget):
     def __init__(self, parent=None, viewer=None, scale=(1, 1, 1)):
+        """
+            Creates a summary of given errors and warnings.
+            Summary gives a detail view when clicked.
+        """
         super().__init__(parent)
         self.warnings = []
         self.errors = []
+        self.img_index = 0
+
         self.error_points_layer = None
         self.warning_points_layer = None
-        self.img_index = 0
+        self.shape_layer = None
 
         self._viewer = viewer
         self._scale = scale
@@ -73,6 +81,7 @@ class ErrorDisplayWidget(QWidget):
         self.error_icon_html = pixmap_to_html(self.error_icon)
 
         error_emitter.errorOccurred.connect(self._on_error_event)
+        error_emitter.errorOccurredBox.connect(self.add_error_box)
         error_emitter.warningOccurred.connect(self._on_warning_event)
 
         self._init_ui()
@@ -81,6 +90,37 @@ class ErrorDisplayWidget(QWidget):
         self.img_index = index
         self._scale = self._viewer.layers[self.img_index].scale
 
+    def add_error_point(self, coordinate):
+        """
+        Add a new point to the error points layer.
+        Expected coordinate is a 3D tuple (z, x, y).
+        """
+        self.error_points_layer = self._init_error_points_layer()
+        coordinate = upscale_to_3d(coordinate)
+
+        data = self.error_points_layer.data.tolist() if self.error_points_layer.data.size else []
+        data.append(coordinate)
+        self.error_points_layer.data = np.array(data)
+
+    def add_error_box(self, min_coordinate, max_coordinate):
+        """
+        Add a box to the error points layer.
+        Expected corner and shape are 3D tuples (z, x, y).
+        """
+
+        self._add_wireframe(min_coordinate, max_coordinate)
+
+    def add_warning_point(self, coordinate):
+        """
+        Add a new point to the warning points layer.
+        Expected coordinate is a 3D tuple (z, x, y).
+        """
+        self.warning_points_layer = self._init_warning_points_layer()
+        coordinate = upscale_to_3d(coordinate)
+
+        data = self.warning_points_layer.data.tolist() if self.warning_points_layer.data.size else []
+        data.append(coordinate)
+        self.warning_points_layer.data = np.array(data)
 
     def _init_ui(self):
         layout = QVBoxLayout(self)
@@ -115,17 +155,7 @@ class ErrorDisplayWidget(QWidget):
         if point:
             self.add_error_point(point)
 
-    def add_error_point(self, coordinate):
-        """
-        Add a new point to the error points layer.
-        Expected coordinate is a 3D tuple (z, x, y).
-        """
-        self.error_points_layer = self._init_error_points_layer()
-        coordinate = upscale_to_3d(coordinate)
 
-        data = self.error_points_layer.data.tolist() if self.error_points_layer.data.size else []
-        data.append(coordinate)
-        self.error_points_layer.data = np.array(data)
 
     def _on_warning_event(self, string: str, point: tuple):
         """Add a warning message to the display."""
@@ -135,17 +165,7 @@ class ErrorDisplayWidget(QWidget):
         if point:
             self.add_warning_point(point)
 
-    def add_warning_point(self, coordinate):
-        """
-        Add a new point to the warning points layer.
-        Expected coordinate is a 3D tuple (z, x, y).
-        """
-        self.warning_points_layer = self._init_warning_points_layer()
-        coordinate = upscale_to_3d(coordinate)
 
-        data = self.warning_points_layer.data.tolist() if self.warning_points_layer.data.size else []
-        data.append(coordinate)
-        self.warning_points_layer.data = np.array(data)
 
     def _update_summary(self):
         """Update the button text with a summary of warnings and errors."""
@@ -208,6 +228,44 @@ class ErrorDisplayWidget(QWidget):
 
         msg_box.layout().addWidget(details_widget)
         msg_box.exec_()
+
+    def _add_wireframe(self, min_coord, max_coord):
+        """Add a wireframe box to the viewer."""
+
+        # Define the 8 vertices of the box using the min and max coordinates
+        vertices = np.array([
+            [min_coord[0], min_coord[1], min_coord[2]],
+            [max_coord[0], min_coord[1], min_coord[2]],
+            [max_coord[0], max_coord[1], min_coord[2]],
+            [min_coord[0], max_coord[1], min_coord[2]],
+            [min_coord[0], min_coord[1], max_coord[2]],
+            [max_coord[0], min_coord[1], max_coord[2]],
+            [max_coord[0], max_coord[1], max_coord[2]],
+            [min_coord[0], max_coord[1], max_coord[2]],
+        ])
+
+        # Define the edges of the box as pairs of vertex indices
+        edges = [
+            [0, 1], [1, 2], [2, 3], [3, 0],  # bottom face
+            [4, 5], [5, 6], [6, 7], [7, 4],  # top face
+            [0, 4], [1, 5], [2, 6], [3, 7]  # vertical edges
+        ]
+
+        # Create segments for each edge (each segment is a pair of coordinates)
+        segments = np.array([[vertices[i], vertices[j]] for i, j in edges])
+
+
+        # Add the segments as a shapes layer (using 'line' type for wireframe)
+        self._viewer.add_shapes(
+            segments,
+            shape_type='line',
+            edge_color='red',
+            face_color='transparent',
+            scale=self._scale
+        )
+
+
+
 
     def add_warning(self, message: str):
         """Add a warning message and update the summary."""

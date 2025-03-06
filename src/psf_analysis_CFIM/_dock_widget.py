@@ -34,6 +34,7 @@ from urllib3.connectionpool import xrange
 
 from psf_analysis_CFIM.bead_finder_CFIM import BeadFinder
 from psf_analysis_CFIM.config.settings_widget import SettingsWidget
+from psf_analysis_CFIM.debug.debug import report_error_debug
 from psf_analysis_CFIM.error_widget.error_display_widget import ErrorDisplayWidget, report_error, report_warning
 from psf_analysis_CFIM.library_workarounds.RangeDict import RangeDict
 from psf_analysis_CFIM.psf_analysis.analyzer import Analyzer
@@ -92,18 +93,25 @@ def get_psf_analysis_settings_path():
     return None
 
 class PsfAnalysis(QWidget):
-    def __init__(self, napari_viewer, parent=None):
+    def __init__(self, napari_viewer, parent=None, *, debug = True):
         super().__init__(parent=parent)
         self._viewer: viewer = napari_viewer
+
+
+        # Event listeners
         napari_viewer.layers.events.inserted.connect(self._layer_inserted)
         napari_viewer.layers.events.removed.connect(self._layer_removed)
         napari_viewer.layers.selection.events.changed.connect(self._on_selection)
 
-        self.settings_Widget = SettingsWidget(parent=self)
+        # Variables
+        self._debug = debug
         self.summary_figs = None
         self.results = None
         self.warnings = []
         self.errors = []
+
+        # UI
+        self.settings_Widget = SettingsWidget(parent=self)
 
         self.bead_finder = None
 
@@ -137,6 +145,7 @@ class PsfAnalysis(QWidget):
         self.cbox_img.currentIndexChanged.connect(self._img_selection_changed)
         self.fill_layer_boxes()
 
+        # setup after UI
         self.use_config()
 
     def use_config(self):
@@ -567,6 +576,8 @@ class PsfAnalysis(QWidget):
                 # Creates an image of the average bead, runs the PSF analysis on it and creates summary image.
                 averaged_bead = analyzer.get_averaged_bead()
                 averaged_psf = PSF(image=averaged_bead)
+
+                print(f"on done | Avg bead shape: {averaged_bead.data.shape}")
 
                 averaged_psf.analyze()
 

@@ -68,6 +68,7 @@ class ZFitter:
             )
         except (RuntimeError, TypeError) as e:
             print(f"Error fitting gaussian with Z: {e}")
+            raise e
         else:
             return fit
 
