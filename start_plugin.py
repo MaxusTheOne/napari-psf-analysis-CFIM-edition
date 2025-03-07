@@ -7,7 +7,6 @@ import faulthandler
 
 
 
-
 def install_plugin():
     """Install the plugin using pip."""
     try:
@@ -49,7 +48,7 @@ def launch_napari_dev_mode(czi_file=None, points=None):
     print("Launching Napari in dev mode...")
 
     # Signal debug mode
-    os.environ["PSF_ANALYSIS_CFIM_DEBUG"] = "0"
+    os.environ["PSF_ANALYSIS_CFIM_DEBUG"] = "1"
     is_debug = "1" == os.environ.get("PSF_ANALYSIS_CFIM_DEBUG")
     print(f"Debug mode: {is_debug}")
 
@@ -58,6 +57,7 @@ def launch_napari_dev_mode(czi_file=None, points=None):
 
     if is_debug:
         debug = DebugClass(viewer)
+        # globals.debug_instance = debug
         print(f"Debug class initialized. | {debug.say_hello()}")
 
 

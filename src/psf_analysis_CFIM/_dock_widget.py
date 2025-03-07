@@ -34,6 +34,7 @@ from urllib3.connectionpool import xrange
 
 from psf_analysis_CFIM.bead_finder_CFIM import BeadFinder
 from psf_analysis_CFIM.config.settings_widget import SettingsWidget
+from psf_analysis_CFIM.debug import global_vars
 from psf_analysis_CFIM.debug.debug import report_error_debug
 from psf_analysis_CFIM.error_widget.error_display_widget import ErrorDisplayWidget, report_error, report_warning
 from psf_analysis_CFIM.library_workarounds.RangeDict import RangeDict
@@ -93,7 +94,7 @@ def get_psf_analysis_settings_path():
     return None
 
 class PsfAnalysis(QWidget):
-    def __init__(self, napari_viewer, parent=None, *, debug = True):
+    def __init__(self, napari_viewer, parent=None):
         super().__init__(parent=parent)
         self._viewer: viewer = napari_viewer
 
@@ -104,7 +105,7 @@ class PsfAnalysis(QWidget):
         napari_viewer.layers.selection.events.changed.connect(self._on_selection)
 
         # Variables
-        self._debug = debug
+        self._debug = False
         self.summary_figs = None
         self.results = None
         self.warnings = []
@@ -147,6 +148,10 @@ class PsfAnalysis(QWidget):
 
         # setup after UI
         self.use_config()
+        if os.getenv("PSF_ANALYSIS_CFIM_DEBUG") == "1":
+            self._debug = True
+            debug = global_vars.debug_instance
+            debug.set_PSFAnalysis_instance(self)
 
     def use_config(self):
         settings = self.settings_Widget.settings
@@ -184,7 +189,7 @@ class PsfAnalysis(QWidget):
         pane.setLayout(QFormLayout())
         self.find_beads_button = QPushButton("Find Beads")
         self.find_beads_button.setEnabled(True)
-        self.find_beads_button.clicked.connect(self.find_beads)
+        self.find_beads_button.clicked.connect(self._find_beads)
         pane.layout().addRow(self.find_beads_button)
         self.analyse_img_button = QPushButton("Re-Analyse Image")
         self.analyse_img_button.setEnabled(True)
@@ -197,7 +202,7 @@ class PsfAnalysis(QWidget):
     def _test_error(self):
         report_error("Test Error",(20,20,20))
 
-    def find_beads(self):
+    def _find_beads(self):
         self._create_bead_finder()
 
         scale= self.bead_finder.get_scale()
@@ -434,6 +439,7 @@ class PsfAnalysis(QWidget):
             QLabel("PSF Z Box Size [nm]", basic_settings), self.psf_z_box_size
         )
 
+    # Rework to interact with settings | And do something I guess
     def select_save_dir(self):
         self.save_path.exec_()
         self.save_path.setToolTip(
@@ -763,6 +769,27 @@ class PsfAnalysis(QWidget):
         else:
             microscope = self.microscope.text()
         return microscope
+
+    def get_current_points_layer(self):
+        return self._viewer.layers[self.cbox_point.currentText()]
+
+    def get_current_img_layer(self):
+        return self._viewer.layers[self.cbox_img.currentText()]
+
+    def get_scale(self):
+        return self.get_current_img_layer().scale
+
+    def get_bounding_box_px(self):
+        """
+            Assuming the input box is in nm
+            Gets the bounding box in pixels from the settings in ui.
+
+        """
+        return (
+            self.psf_z_box_size.value() / self.z_spacing.value(),
+            self.psf_yx_box_size.value() / self.xy_pixelsize.value(),
+            self.psf_yx_box_size.value() / self.xy_pixelsize.value(),
+        )
 
     def delete_measurement_action(self):
         if len(
