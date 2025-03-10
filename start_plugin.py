@@ -44,6 +44,8 @@ def launch_napari_dev_mode(czi_file=None, points=None):
         - dev mode messes with napari opening. Causing incorrect window size while the program still thinks it's full screen. Only visual.
         - points flag changes napari cord scale. Causing wrong focus after psf analysis. Only visual, the data is correct.
             - Likely due to the mismatch between the nm scale of the image and the pixel scale of the points.
+        - Opening napari console with shortcut removes exposed variables. Makes the debug class unusable.
+            - Works fine when opened with the console button.
     """
     print("Launching Napari in dev mode...")
 
@@ -54,6 +56,7 @@ def launch_napari_dev_mode(czi_file=None, points=None):
 
     viewer = napari.Viewer()
     from psf_analysis_CFIM.debug.debug import DebugClass # Causes crash if imported before napari.Viewer() | Due to qt event loop
+
 
     if is_debug:
         debug = DebugClass(viewer)

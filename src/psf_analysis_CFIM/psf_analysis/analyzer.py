@@ -66,7 +66,6 @@ class Analyzer:
                 print(f"Analyzer threading | {e}")
                 self._invalid_beads_index.append(self._index)
                 min_cord, max_cord = bead.get_box()
-                report_error_box(min_cord, max_cord)
                 report_error("", bead.get_middle_coordinates())
             self._index += 1
             return self._index + (len(self._parameters.point_data) - len(self._beads))

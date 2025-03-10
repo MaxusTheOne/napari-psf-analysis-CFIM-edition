@@ -38,6 +38,7 @@ from psf_analysis_CFIM.debug import global_vars
 from psf_analysis_CFIM.debug.debug import report_error_debug
 from psf_analysis_CFIM.error_widget.error_display_widget import ErrorDisplayWidget, report_error, report_warning
 from psf_analysis_CFIM.library_workarounds.RangeDict import RangeDict
+from psf_analysis_CFIM.mounting_medium_selector import MountingMediumSelector
 from psf_analysis_CFIM.psf_analysis.analyzer import Analyzer
 from psf_analysis_CFIM.psf_analysis.image_analysis import analyze_image
 from psf_analysis_CFIM.psf_analysis.parameters import PSFAnalysisInputs
@@ -288,14 +289,15 @@ class PsfAnalysis(QWidget):
         advanced_settings.layout().addRow(
             QLabel("Bead Supplier", advanced_settings), self.bead_supplier
         )
-        self.mounting_medium = QDoubleSpinBox(parent=advanced_settings)
-        self.mounting_medium.setToolTip("RI index of the mounting medium.")
+        # self.mounting_medium = QDoubleSpinBox(parent=advanced_settings)
+        # self.mounting_medium.setToolTip("RI index of the mounting medium.")
+        # self.mounting_medium.setMinimum(0)
+        # self.mounting_medium.setMaximum(2)
+        # self.mounting_medium.setValue(1.4)
+        self.mounting_medium = MountingMediumSelector(parent=advanced_settings)
         advanced_settings.layout().addRow(
-            QLabel("RI Mounting Medium", advanced_settings), self.mounting_medium
+            QLabel("RI Mounting Medium", advanced_settings), self.mounting_medium.combo
         )
-        self.mounting_medium.setMinimum(0)
-        self.mounting_medium.setMaximum(2)
-        self.mounting_medium.setValue(1.4)
         self.operator = QLineEdit()
         self.operator.setToolTip("Person in charge of the PSF acquisition.")
         advanced_settings.layout().addRow(
@@ -602,6 +604,8 @@ class PsfAnalysis(QWidget):
                 combined_stack = np.concatenate((averaged_summary_image_expanded, measurement_stack), axis=0)
                 display_measurement_stack(combined_stack, measurement_scale)
 
+                _hide_point_layers()
+
             _reset_state()
 
         def display_measurement_stack(averaged_measurement, measurement_scale):
@@ -616,6 +620,11 @@ class PsfAnalysis(QWidget):
             # Resets napari viewer to 0.0
             self._viewer.dims.set_point(0, 0)
             self._viewer.reset_view()
+
+        def _hide_point_layers():
+            for layer in self._viewer.layers:
+                if isinstance(layer, napari.layers.Points):
+                    layer.visible = False
 
         def _update_progress(progress: int):
             self.progressbar.setValue(progress)

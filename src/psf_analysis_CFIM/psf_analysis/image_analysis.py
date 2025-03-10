@@ -47,7 +47,12 @@ def analyze_image(img_layer, error_widget: ErrorDisplayWidget, widget_settings: 
     # Error handling
     error_handling_intensity(min_percentage, max_percentage, max_val, error_widget, settings["intensity_settings"])
     # report_noise(img_data, error_widget) # TODO: Make this work better before enabling
-    expected_z_spacing = report_z_spacing(img_layer, error_widget, widget_settings)
+    try:
+        expected_z_spacing = report_z_spacing(img_layer, error_widget, widget_settings)
+    except ValueError as e:
+        show_info(e)
+        expected_z_spacing = None
+
 
     # # Store statistics in dictionary
     # stats = {
@@ -81,7 +86,7 @@ def error_handling_intensity(min_percentage, max_percentage, max_val, error_widg
         error_widget.add_warning(f"Many pixels with max intensity ({max_val}) | {round(max_percentage, 4)}% of pixels")
 
 
-    # Checks TODO: A whole section for analysing PSF quality
+    # TODO: A whole section for analysing quality after finding beads
 
 def report_noise(img_data, error_widget, settings):
     standard_deviation = np.std(img_data)
@@ -120,6 +125,10 @@ def report_z_spacing(img_layer, error_widget: ErrorDisplayWidget, widget_setting
     numeric_aparature = widget_settings["NA"]
     z_spacing = img_layer.scale[0] * 1000 # µn -> nm
 
+    # Check if all required settings are present
+    if None in (reflective_index, emission, numeric_aparature):
+        raise ValueError("Missing required settings for calculating expected bead z size. \n reflective index | emission | numeric aparature")
+
     expected_bead_z_size = (2 * reflective_index * emission) / numeric_aparature ** 2
 
     if z_spacing > expected_bead_z_size / 2.5:
@@ -138,7 +147,7 @@ def _calculate_snr(img_data: np.ndarray) -> float:
 
 def error_handling_flat(img_data, error_widget):
     """Check if the image is flat based on the standard deviation of pixel intensities."""
-    # TODO: config file
+    # TODO: config file | Make this function more useful
     flat_threshold = 1.0
     standard_deviation = np.std(img_data)
     if standard_deviation < flat_threshold:

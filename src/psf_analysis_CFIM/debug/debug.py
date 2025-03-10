@@ -1,7 +1,9 @@
 import os
 
 import numpy as np
+from napari.utils.theme import opacity
 from qtpy.QtCore import QObject, Signal
+from scipy import spatial
 from vispy.visuals import LineVisual
 
 from psf_analysis_CFIM.debug import global_vars
@@ -32,7 +34,7 @@ class DebugClass:
         self._widget = None
         self._bead_layer = None
         self._shape_layer = None
-        self._shape_points_layer = None
+        self._surface_layer = None
 
         global_vars.debug_instance = self
 
@@ -60,19 +62,34 @@ class DebugClass:
         if bounding_box_dims is None:
             bounding_box_dims = self._widget.get_bounding_box_px()
 
-        layer = self._get_shape_layer()
-        point_layer = self._get_shape_points_layer()
-
+        # surface_layer = self._get_surface_layer()
 
         half_bbox = (bounding_box_dims[0] / 2, bounding_box_dims[1] / 2, bounding_box_dims[2] / 2)
-        min_coord = [point[0] - half_bbox[0], point[1] - half_bbox[1], point[2] - half_bbox[2]]
-        max_coord = [point[0] + half_bbox[0], point[1] + half_bbox[1], point[2] + half_bbox[2]]
 
-        vertices = self._draw_vertices_box(min_coord, max_coord)
-        box = self._draw_bounding_box(min_coord, max_coord)
-        print(f"Box: {box} \n Min: {min_coord} \n Max: {max_coord} \n Vertices: {len(vertices)}")
-        layer.add(box, edge_color='red', edge_width= 0.5, shape_type="line")
-        point_layer.add(vertices)
+        # Adjust vertices to be centered around the given point and scale them
+        vertices = np.array([
+            [point[0] - half_bbox[0], point[1] - half_bbox[1], point[2] - half_bbox[2]],
+            [point[0] - half_bbox[0], point[1] - half_bbox[1], point[2] + half_bbox[2]],
+            [point[0] - half_bbox[0], point[1] + half_bbox[1], point[2] - half_bbox[2]],
+            [point[0] - half_bbox[0], point[1] + half_bbox[1], point[2] + half_bbox[2]],
+            [point[0] + half_bbox[0], point[1] - half_bbox[1], point[2] - half_bbox[2]],
+            [point[0] + half_bbox[0], point[1] - half_bbox[1], point[2] + half_bbox[2]],
+            [point[0] + half_bbox[0], point[1] + half_bbox[1], point[2] - half_bbox[2]],
+            [point[0] + half_bbox[0], point[1] + half_bbox[1], point[2] + half_bbox[2]]
+        ]) * self._widget.get_scale()
+
+        hull = spatial.ConvexHull(vertices)
+        surface = (hull.points, hull.simplices)
+
+        if self._surface_layer is None:
+            self._surface_layer = self._viewer.add_surface(surface, opacity=0, name="bbox_surface", wireframe={'visible': True, 'color': 'red'})
+        else:
+            self._surface_layer.data = surface
+        # else: # TODO: Figure out how to add multiple surfaces to the same layer
+        #     data = self._surface_layer.data
+        #     data = np.array(data[0])
+        #     data = np.concatenate((data, surface), axis=0)
+        #     self._surface_layer.data = data
 
 
     def _draw_bounding_box(self, min_coord, max_coord):
@@ -85,7 +102,13 @@ class DebugClass:
             [min_coord, [max_coord[0], min_coord[1], min_coord[2]]],
             [max_coord, [max_coord[0], max_coord[1], min_coord[2]]],
             [max_coord, [max_coord[0], min_coord[1], max_coord[2]]],
-            [max_coord, [min_coord[0], max_coord[1], max_coord[2]]]
+            [max_coord, [min_coord[0], max_coord[1], max_coord[2]]],
+            [[max_coord[0], min_coord[1], min_coord[2]], [max_coord[0], max_coord[1], min_coord[2]]],
+            [[max_coord[0], min_coord[1], min_coord[2]], [max_coord[0], min_coord[1], max_coord[2]]],
+            [[min_coord[0], max_coord[1], min_coord[2]], [min_coord[0], max_coord[1], max_coord[2]]],
+            [[min_coord[0], min_coord[1], max_coord[2]], [min_coord[0], max_coord[1], max_coord[2]]],
+            [[min_coord[0], min_coord[1], max_coord[2]], [max_coord[0], min_coord[1], max_coord[2]]],
+            [[min_coord[0], max_coord[1], min_coord[2]], [max_coord[0], max_coord[1], min_coord[2]]]
         ]
         return box
 
@@ -174,6 +197,14 @@ class DebugClass:
                                                                ,face_color='blue', border_color = "blue" ,size=2)
 
         return self._shape_points_layer
+
+    def _get_surface_layer(self):
+        layer_name = "bbox_surface"
+
+        if self._shape_layer is None:
+            self._shape_layer = self._viewer.add_surface(np.empty((0, 3)), name=layer_name)
+
+        return self._shape_layer
 
     def _set_bead_point_layer(self):
         """
