@@ -6,7 +6,6 @@ import argparse
 import faulthandler
 
 
-
 def install_plugin():
     """Install the plugin using pip."""
     try:

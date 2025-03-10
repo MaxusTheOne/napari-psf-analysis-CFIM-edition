@@ -43,6 +43,7 @@ from psf_analysis_CFIM.psf_analysis.analyzer import Analyzer
 from psf_analysis_CFIM.psf_analysis.image_analysis import analyze_image
 from psf_analysis_CFIM.psf_analysis.parameters import PSFAnalysisInputs
 from psf_analysis_CFIM.psf_analysis.psf import PSF
+from psf_analysis_CFIM.range_indicator_colormap import ToggleRangeIndicator
 from psf_analysis_CFIM.report_widget.report_widget import ReportWidget
 
 
@@ -198,6 +199,8 @@ class PsfAnalysis(QWidget):
         pane.layout().addRow(self.analyse_img_button)
         self.error_widget = ErrorDisplayWidget(parent=self, viewer=self._viewer)
         pane.layout().addRow(self.error_widget)
+        self.toggle_range_indicator = ToggleRangeIndicator(self, parent=pane)
+        pane.layout().addWidget(self.toggle_range_indicator.init_ui())
         self.layout().addWidget(pane)
 
     def _test_error(self):
