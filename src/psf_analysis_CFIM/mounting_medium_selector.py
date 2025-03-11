@@ -62,3 +62,9 @@ class MountingMediumSelector(QWidget):
         except ValueError:
             # Not a number: treat as preset and lookup its mapping.
             return medium_to_ri.get(text, text)
+
+    def setValue(self, value):
+        """
+            Sets the value of the combo box.
+        """
+        self.combo.setEditText(str(value))

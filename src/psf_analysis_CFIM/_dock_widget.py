@@ -98,7 +98,7 @@ def get_psf_analysis_settings_path():
 class PsfAnalysis(QWidget):
     def __init__(self, napari_viewer, parent=None):
         super().__init__(parent=parent)
-        self._viewer: viewer = napari_viewer
+        self.viewer: viewer = napari_viewer
 
 
         # Event listeners
@@ -197,7 +197,7 @@ class PsfAnalysis(QWidget):
         self.analyse_img_button.setEnabled(True)
         self.analyse_img_button.clicked.connect(self._validate_image)
         pane.layout().addRow(self.analyse_img_button)
-        self.error_widget = ErrorDisplayWidget(parent=self, viewer=self._viewer)
+        self.error_widget = ErrorDisplayWidget(parent=self, viewer=self.viewer)
         pane.layout().addRow(self.error_widget)
         self.toggle_range_indicator = ToggleRangeIndicator(self, parent=pane)
         pane.layout().addWidget(self.toggle_range_indicator.init_ui())
@@ -222,10 +222,10 @@ class PsfAnalysis(QWidget):
 
 
     def _img_to_viewer(self, image, scale=None, name="BeadTest"):
-        self._viewer.add_image(image, name=name, scale=scale)
+        self.viewer.add_image(image, name=name, scale=scale)
 
     def _point_list_to_viewer(self, points, scale=None, name="Points", size=10):
-        self._viewer.add_points(points, size=size,scale=scale, name=name,  face_color="cyan")
+        self.viewer.add_points(points, size=size, scale=scale, name=name, face_color="cyan")
 
     def _add_save_dialog(self):
         self.report_widget.set_title("PSF Analysis Report") # TODO: Put this in settings
@@ -460,7 +460,7 @@ class PsfAnalysis(QWidget):
         )
 
     def fill_layer_boxes(self):
-        for layer in self._viewer.layers:
+        for layer in self.viewer.layers:
             if isinstance(layer, napari.layers.Image):
                 self.cbox_img.addItem(str(layer))
                 self._img_selection_changed()
@@ -470,7 +470,7 @@ class PsfAnalysis(QWidget):
     def _img_selection_changed(self):
         if self.current_img_index != self.cbox_img.currentIndex():
             self.current_img_index = self.cbox_img.currentIndex()
-            for layer in self._viewer.layers:
+            for layer in self.viewer.layers:
                 if str(layer) == self.cbox_img.itemText(self.cbox_img.currentIndex()):
                     self.date.setDate(
                         datetime.fromtimestamp(getctime(layer.source.path))
@@ -511,7 +511,7 @@ class PsfAnalysis(QWidget):
         if self.bead_finder is None:
             self.find_beads_button.setEnabled(True)
 
-        layer = self._viewer.layers[self.cbox_img.currentText()]
+        layer = self.viewer.layers[self.cbox_img.currentText()]
         self.bead_finder = BeadFinder(layer.data, layer.scale, bounding_box=(self.psf_z_box_size.value(), self.psf_yx_box_size.value(), self.psf_yx_box_size.value()))
 
 
@@ -536,9 +536,9 @@ class PsfAnalysis(QWidget):
             self.cbox_point.removeItem(items.index(str(event.value)))
 
     def _on_selection(self, event):
-        if self._viewer.layers.selection.active is not None:
+        if self.viewer.layers.selection.active is not None:
             self.delete_measurement.setEnabled(
-                self._viewer.layers.selection.active.name == "Analyzed Beads"
+                self.viewer.layers.selection.active.name == "Analyzed Beads"
             )
 
     def request_cancel(self):
@@ -588,8 +588,6 @@ class PsfAnalysis(QWidget):
                 averaged_bead = analyzer.get_averaged_bead()
                 averaged_psf = PSF(image=averaged_bead)
 
-                print(f"on done | Avg bead shape: {averaged_bead.data.shape}")
-
                 averaged_psf.analyze()
 
                 self.report_widget.add_bead_stats_psf(averaged_psf.get_record(), title="Average from image")
@@ -613,7 +611,7 @@ class PsfAnalysis(QWidget):
 
         def display_measurement_stack(averaged_measurement, measurement_scale):
             """Display the averaged measurement stack in the viewer."""
-            self._viewer.add_image(
+            self.viewer.add_image(
                 averaged_measurement,
                 name="PSF images",
                 interpolation2d="bicubic",
@@ -621,11 +619,11 @@ class PsfAnalysis(QWidget):
                 scale=measurement_scale,
             )
             # Resets napari viewer to 0.0
-            self._viewer.dims.set_point(0, 0)
-            self._viewer.reset_view()
+            self.viewer.dims.set_point(0, 0)
+            self.viewer.reset_view()
 
         def _hide_point_layers():
-            for layer in self._viewer.layers:
+            for layer in self.viewer.layers:
                 if isinstance(layer, napari.layers.Points):
                     layer.visible = False
 
@@ -650,8 +648,8 @@ class PsfAnalysis(QWidget):
 
             self.results = analyzer.get_results()
             measurement_stack, measurement_scale = analyzer.get_summary_figure_stack(
-                bead_img_scale=self._viewer.layers[self.cbox_img.currentText()].scale,
-                bead_img_shape=self._viewer.layers[
+                bead_img_scale=self.viewer.layers[self.cbox_img.currentText()].scale,
+                bead_img_shape=self.viewer.layers[
                     self.cbox_img.currentText()
                 ].data.shape,
             )
@@ -707,7 +705,7 @@ class PsfAnalysis(QWidget):
 
     def _get_img_name(self):
         img_layer = None
-        for layer in self._viewer.layers:
+        for layer in self.viewer.layers:
             if str(layer) == self.cbox_img.currentText():
                 img_layer = layer
 
@@ -718,7 +716,7 @@ class PsfAnalysis(QWidget):
 
     def _get_point_data(self):
         point_layer = None
-        for layer in self._viewer.layers:
+        for layer in self.viewer.layers:
             if str(layer) == self.cbox_point.currentText():
                 point_layer = layer
         if point_layer is None:
@@ -732,7 +730,7 @@ class PsfAnalysis(QWidget):
 
     def _get_current_img_layer(self):
         img_layer = None
-        for layer in self._viewer.layers:
+        for layer in self.viewer.layers:
             if str(layer) == self.cbox_img.currentText():
                 img_layer = layer
         return img_layer
@@ -783,10 +781,10 @@ class PsfAnalysis(QWidget):
         return microscope
 
     def get_current_points_layer(self):
-        return self._viewer.layers[self.cbox_point.currentText()]
+        return self.viewer.layers[self.cbox_point.currentText()]
 
     def get_current_img_layer(self):
-        return self._viewer.layers[self.cbox_img.currentText()]
+        return self.viewer.layers[self.cbox_img.currentText()]
 
     def get_scale(self):
         return self.get_current_img_layer().scale
@@ -805,11 +803,11 @@ class PsfAnalysis(QWidget):
 
     def delete_measurement_action(self):
         if len(
-            self._viewer.layers.selection
-        ) > 0 and self._viewer.layers.selection.active.name.startswith(
+            self.viewer.layers.selection
+        ) > 0 and self.viewer.layers.selection.active.name.startswith(
             "Analyzed " "Beads"
         ):
-            idx = self._viewer.dims.current_step[0]
+            idx = self.viewer.dims.current_step[0]
             self.results = self.results.drop(idx).reset_index(drop=True)
             if idx == 0:
                 self.summary_figs = self.summary_figs[1:]
@@ -823,9 +821,9 @@ class PsfAnalysis(QWidget):
                     ]
                 )
             if len(self.summary_figs) == 0:
-                self._viewer.layers.remove_selected()
+                self.viewer.layers.remove_selected()
             else:
-                self._viewer.layers.selection.active.data = self.summary_figs
+                self.viewer.layers.selection.active.data = self.summary_figs
         else:
             show_info("Please select the 'Analyzed Beads' layer.")
 

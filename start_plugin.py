@@ -5,6 +5,8 @@ import napari
 import argparse
 import faulthandler
 
+import numpy as np
+
 
 def install_plugin():
     """Install the plugin using pip."""
@@ -51,7 +53,6 @@ def launch_napari_dev_mode(czi_file=None, points=None):
     # Signal debug mode
     os.environ["PSF_ANALYSIS_CFIM_DEBUG"] = "1"
     is_debug = "1" == os.environ.get("PSF_ANALYSIS_CFIM_DEBUG")
-    print(f"Debug mode: {is_debug}")
 
     viewer = napari.Viewer()
     from psf_analysis_CFIM.debug.debug import DebugClass # Causes crash if imported before napari.Viewer() | Due to qt event loop
@@ -76,6 +77,7 @@ def launch_napari_dev_mode(czi_file=None, points=None):
             if czi_file:
                 try:
                     load_czi_file(viewer, czi_file)
+
                 except FileNotFoundError as e:
                     print(f"Failed to load czi file {czi_file}. Error: {e}")
 
@@ -90,6 +92,7 @@ def launch_napari_dev_mode(czi_file=None, points=None):
                         "Failed to decode the points argument. Please provide a valid JSON string, e.g. \"[[z,y,x],[z,y,x]]\".")
 
         viewer.events.connect(on_status_change)
+
 
     napari.run()
 
@@ -119,3 +122,4 @@ if __name__ == "__main__":
         install_plugin()
         # Run the standard Napari launch
         launch_napari()
+

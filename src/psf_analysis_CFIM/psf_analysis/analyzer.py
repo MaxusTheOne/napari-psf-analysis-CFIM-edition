@@ -47,11 +47,11 @@ class Analyzer:
             bead = self._beads[self._index]
             try:
                 if 0 in bead.data.shape:
-                    raise InvalidShapeError(f"Bead has invalid shape: {bead.data.shape}")
+                    raise InvalidShapeError(f"Discarding bead with invalid shape: {bead.data.shape}")
                 psf = PSF(image=bead)
                 psf.analyze()
                 if psf.error:
-                    raise InvalidShapeError(f"Error analyzing bead: {self._index}")
+                    raise InvalidShapeError(f"Discarding bead due to analyze error: {self._index}")
                 results = psf.get_summary_dict()
                 self._add(
                     self._extend_result_table(bead, results),
@@ -63,9 +63,8 @@ class Analyzer:
                     ),
                 )
             except InvalidShapeError as e:
-                print(f"Analyzer threading | {e}")
                 self._invalid_beads_index.append(self._index)
-                min_cord, max_cord = bead.get_box()
+                # min_cord, max_cord = bead.get_box()
                 report_error("", bead.get_middle_coordinates())
             self._index += 1
             return self._index + (len(self._parameters.point_data) - len(self._beads))
