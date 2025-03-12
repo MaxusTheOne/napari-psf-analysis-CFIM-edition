@@ -1,5 +1,6 @@
 import os
 import pathlib
+import warnings
 from datetime import datetime
 from importlib.metadata import version
 from os.path import basename, dirname, exists, getctime, join
@@ -43,7 +44,7 @@ from psf_analysis_CFIM.psf_analysis.analyzer import Analyzer
 from psf_analysis_CFIM.psf_analysis.image_analysis import analyze_image
 from psf_analysis_CFIM.psf_analysis.parameters import PSFAnalysisInputs
 from psf_analysis_CFIM.psf_analysis.psf import PSF
-from psf_analysis_CFIM.range_indicator_colormap import ToggleRangeIndicator
+from psf_analysis_CFIM.range_indicator_button import ToggleRangeIndicator
 from psf_analysis_CFIM.report_widget.report_widget import ReportWidget
 
 
@@ -100,6 +101,14 @@ class PsfAnalysis(QWidget):
         super().__init__(parent=parent)
         self.viewer: viewer = napari_viewer
 
+        # Note: "Hack" to allow hiding layers from the layer list | in future (0.6 and above) versions this should instead use a .hidden attribute
+        # Check napari version and conditionally suppress FutureWarning
+        if version("napari") < "0.6.0":
+            warnings.filterwarnings("ignore", category=FutureWarning, module="napari")
+            def _my_filter(row, parent):
+                return "<hidden>" not in self.viewer.layers[row].name
+            self.viewer.window.qt_viewer.layers.model().filterAcceptsRow = _my_filter
+
 
         # Event listeners
         napari_viewer.layers.events.inserted.connect(self._layer_inserted)
@@ -154,6 +163,8 @@ class PsfAnalysis(QWidget):
             self._debug = True
             debug = global_vars.debug_instance
             debug.set_PSFAnalysis_instance(self)
+
+
 
     def use_config(self):
         settings = self.settings_Widget.settings
@@ -484,8 +495,8 @@ class PsfAnalysis(QWidget):
     def fill_settings_boxes(self, layer):
         metadata = layer.metadata
         required_keys = [
-            "MicroscopeType", "ObjectiveID", "Magnification", "NA",
-            "AiryUnit", "Excitation", "Emission"
+            "CameraName", "ObjectiveName", "NominalMagnification", "LensNA",
+            "PinholeSizeAiry", "ExcitationWavelength", "EmissionWavelength"
         ]
         missing_keys = []
         for key in required_keys:
@@ -495,13 +506,13 @@ class PsfAnalysis(QWidget):
             show_warning(f"Missing metadata: {missing_keys} | Plugin only made for .CZI (for now) | Plugin might behave unexpectedly")
 
         try:
-            self.microscope.setText(metadata["MicroscopeType"])
-            self.objective_id.setText(metadata["ObjectiveID"])
-            self.magnification.setValue(int(metadata["Magnification"]))
-            self.na.setValue(float(metadata["NA"]))
-            self.airy_unit.setValue(round(float(metadata["AiryUnit"]), 2))
-            self.excitation.setValue(round(float(metadata["Excitation"]),2))
-            self.emission.setValue(round(float(metadata["Emission"]),2))
+            self.microscope.setText(metadata["CameraName"])
+            self.objective_id.setText(metadata["ObjectiveName"])
+            self.magnification.setValue(int(metadata["NominalMagnification"]))
+            self.na.setValue(float(metadata["LensNA"]))
+            self.airy_unit.setValue(round(float(metadata["PinholeSizeAiry"]), 2))
+            self.excitation.setValue(round(float(metadata["ExcitationWavelength"]),2))
+            self.emission.setValue(round(float(metadata["EmissionWavelength"]),2))
             self.xy_pixelsize.setValue(round(float(layer.scale[1])*1000,2))
             self.z_spacing.setValue(round(float(layer.scale[0])*1000,2))
         except KeyError as e:
@@ -671,6 +682,9 @@ class PsfAnalysis(QWidget):
         """
             Returns a color based on the emission wavelength in nm.
         """
+        wavelength = self.emission.value()
+        if wavelength is None or wavelength <= 0:
+            return "Gray"
         # Self-implemented range dict :) # Maybe move the dict elsewhere, since it gets created every time.
         wavelength_color_range_dict = RangeDict(
             [(380, 450, "Violet"),
@@ -680,7 +694,7 @@ class PsfAnalysis(QWidget):
              (565, 590, "Yellow"),
              (590, 625, "Orange"),
              (625, 740, "Red")])
-        color = wavelength_color_range_dict[self.emission.value()]
+        color = wavelength_color_range_dict[wavelength]
         return color
 
     def _validate_image(self):

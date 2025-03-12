@@ -31,8 +31,10 @@ class Analyzer:
         self._results = None
         self._result_figures = {}
         self._index = 0
-
-        self._debug = os.environ["PSF_ANALYSIS_CFIM_DEBUG"] == "1"
+        try:
+            self._debug = os.environ["PSF_ANALYSIS_CFIM_DEBUG"] == "1"
+        except Exception:
+            self._debug = False
         if self._debug:
             print("Analyzer | Debug")
 

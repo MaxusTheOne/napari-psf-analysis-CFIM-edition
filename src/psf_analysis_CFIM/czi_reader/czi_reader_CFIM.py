@@ -10,8 +10,6 @@ def read_czi(path):
         Loads a .czi file and return the data in a proper callable format.
         Made because I could not get a direct reader to work with napari.
 
-        Incompatibility with other file formats stems from the metadata processor renaming keys.
-
         Parameters:
             path: str -> Path to the .czi file.
 
