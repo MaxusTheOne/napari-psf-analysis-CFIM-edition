@@ -46,4 +46,4 @@ class ToggleRangeIndicator(QWidget):
 
         # RaIn for Range Indicator :)
         # DEPRECATED: Hack used for the hidden tagged layer | to be removed in napari 0.6.0
-        self.label_layer = self._viewer.add_labels(labels, name='RaIn_label <hidden>', colormap=label_colors, scale=img_layer.scale)
+        self.label_layer = self._viewer.add_labels(labels, name='RaIn_label', colormap=label_colors, scale=img_layer.scale)

@@ -20,6 +20,8 @@ For the latest stable version (recommended)
 
 This is a **fork** of the [napari-psf-analysis](https://github.com/fmi-faim/napari-psf-analysis) project.
 
+The features from this edition are made as requested by the staff at CFIM.
+
 ---
 
 ## Extra Features

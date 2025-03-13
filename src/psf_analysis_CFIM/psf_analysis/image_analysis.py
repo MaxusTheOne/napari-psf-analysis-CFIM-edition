@@ -6,7 +6,8 @@ from napari.utils.notifications import show_info
 
 from psf_analysis_CFIM.error_widget.error_display_widget import ErrorDisplayWidget
 
-# TODO: Rework this to a class
+# TODO: Rewrite this to a class
+# TODO: A whole section for analysing quality after finding beads
 def analyze_image(img_layer, error_widget: ErrorDisplayWidget, widget_settings: Dict[str, any], num_bins=8):
 
     img_data = img_layer.data
@@ -46,25 +47,13 @@ def analyze_image(img_layer, error_widget: ErrorDisplayWidget, widget_settings: 
 
     # Error handling
     error_handling_intensity(min_percentage, max_percentage, max_val, error_widget, settings["intensity_settings"])
-    # report_noise(img_data, error_widget) # TODO: Make this work better before enabling
+    # report_noise(img_data, error_widget, settings["noise_settings"]) # TODO: Make this work better before enabling
+
     try:
         expected_z_spacing = report_z_spacing(img_layer, error_widget, widget_settings)
     except ValueError as e:
         show_info(e)
         expected_z_spacing = None
-
-
-    # # Store statistics in dictionary
-    # stats = {
-    #     f"0 (min)": f"{min_percentage:.2f}%",
-    # }
-    #
-    # for i in range(len(hist)):
-    #     stats[f"{bin_edges[i]:.1f}-{bin_edges[i + 1]:.1f}"] = f"{percentages[i]:.2f}%"
-    #
-    # stats[f"{max_val:.1f} (max)"] = f"{max_percentage:.2f}%"
-    #
-    # return stats
     return expected_z_spacing
 
 def error_handling_intensity(min_percentage, max_percentage, max_val, error_widget, settings):
@@ -86,7 +75,6 @@ def error_handling_intensity(min_percentage, max_percentage, max_val, error_widg
         error_widget.add_warning(f"Many pixels with max intensity ({max_val}) | {round(max_percentage, 4)}% of pixels")
 
 
-    # TODO: A whole section for analysing quality after finding beads
 
 def report_noise(img_data, error_widget, settings):
     standard_deviation = np.std(img_data)

@@ -97,9 +97,6 @@ class Analyzer:
     def get_averaged_bead(self):
         """Average the raw bead data before analysis."""
         filtered_beads = [bead.data for bead in self.get_raw_beads_filtered()]
-        if self._debug:
-            print(f"analyzer | get_averaged_bead | filtered_beads shape: {filtered_beads[0].shape}")
-            print(f"invalid_beads_index: {self._invalid_beads_index}")
         try:
             averaged_bead_data = np.mean(filtered_beads, axis=0).astype(np.int32)
             averaged_bead = Calibrated3DImage(data=averaged_bead_data, spacing=self._parameters.spacing)

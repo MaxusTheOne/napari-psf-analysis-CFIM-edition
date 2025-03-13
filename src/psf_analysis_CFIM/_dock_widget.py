@@ -101,15 +101,6 @@ class PsfAnalysis(QWidget):
         super().__init__(parent=parent)
         self.viewer: viewer = napari_viewer
 
-        # Note: "Hack" to allow hiding layers from the layer list | in future (0.6 and above) versions this should instead use a .hidden attribute
-        # Check napari version and conditionally suppress FutureWarning
-        if version("napari") < "0.6.0":
-            warnings.filterwarnings("ignore", category=FutureWarning, module="napari")
-            def _my_filter(row, parent):
-                return "<hidden>" not in self.viewer.layers[row].name
-            self.viewer.window.qt_viewer.layers.model().filterAcceptsRow = _my_filter
-
-
         # Event listeners
         napari_viewer.layers.events.inserted.connect(self._layer_inserted)
         napari_viewer.layers.events.removed.connect(self._layer_removed)
