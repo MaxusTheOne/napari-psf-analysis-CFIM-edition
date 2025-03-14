@@ -54,7 +54,7 @@ def launch_napari_dev_mode(czi_file=None, points=None):
     os.environ["PSF_ANALYSIS_CFIM_DEBUG"] = "1"
     is_debug = "1" == os.environ.get("PSF_ANALYSIS_CFIM_DEBUG")
 
-    viewer = napari.Viewer()
+    viewer = napari.Viewer(ndisplay=3, show= False)
     from psf_analysis_CFIM.debug.debug import DebugClass # Causes crash if imported before napari.Viewer() | Due to qt event loop
 
 
@@ -93,8 +93,9 @@ def launch_napari_dev_mode(czi_file=None, points=None):
 
         viewer.events.connect(on_status_change)
 
-
+    viewer.show()
     napari.run()
+
 
 if __name__ == "__main__":
     faulthandler.enable()

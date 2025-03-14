@@ -98,7 +98,7 @@ class Analyzer:
         """Average the raw bead data before analysis."""
         filtered_beads = [bead.data for bead in self.get_raw_beads_filtered()]
         try:
-            averaged_bead_data = np.mean(filtered_beads, axis=0).astype(np.int32)
+            averaged_bead_data = np.mean(filtered_beads, axis=0).astype(np.uint16)
             averaged_bead = Calibrated3DImage(data=averaged_bead_data, spacing=self._parameters.spacing)
             return averaged_bead
         except (ValueError, AttributeError) as e:

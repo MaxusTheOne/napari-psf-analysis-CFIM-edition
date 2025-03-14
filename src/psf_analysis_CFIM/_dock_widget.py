@@ -582,9 +582,14 @@ class PsfAnalysis(QWidget):
         # Note: Why is it called measurement_stack? It's a stack of summary images.
         def _on_done(result):
             if result is not None:
+
                 # unpacks the result from analyzer. Should contain a stack of summary images and the scale.
                 measurement_stack, measurement_scale = result
                 self.summary_figs = measurement_stack
+
+                bead_img_stack = analyzer.get_raw_beads_filtered()
+                print(f"bead img stack 0: {bead_img_stack[0].shape()}")
+                print(f"Results for 0: {self.results["ImageName"]}")
 
                 # Creates an image of the average bead, runs the PSF analysis on it and creates summary image.
                 averaged_bead = analyzer.get_averaged_bead()
