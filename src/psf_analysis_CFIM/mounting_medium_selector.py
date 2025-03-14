@@ -63,6 +63,12 @@ class MountingMediumSelector(QWidget):
             # Not a number: treat as preset and lookup its mapping.
             return medium_to_ri.get(text, text)
 
+    def text(self):
+        """
+            Returns the value of the combo box as a string.
+        """
+        return str(self.value())
+
     def setValue(self, value):
         """
             Sets the value of the combo box.
