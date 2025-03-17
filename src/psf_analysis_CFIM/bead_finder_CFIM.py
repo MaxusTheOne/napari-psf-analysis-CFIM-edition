@@ -9,8 +9,7 @@ class BeadFinder:
     def __init__(self, image, scale: tuple, bounding_box: tuple):
         self._debug = True
 
-        self.bounding_box_um = np.array(bounding_box) / 1000
-        self.bounding_box_px = np.array(self.bounding_box_um) / np.array(scale)
+        self.bounding_box_px = np.array(bounding_box) / np.array(scale)
         self.max_bead_dist = np.linalg.norm(np.array(self.bounding_box_px)) / 2
 
         self.image = image

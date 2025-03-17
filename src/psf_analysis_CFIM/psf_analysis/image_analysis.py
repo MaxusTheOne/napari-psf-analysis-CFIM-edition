@@ -98,7 +98,7 @@ def report_z_spacing(img_layer, error_widget: ErrorDisplayWidget, widget_setting
     Formula: (2 * RI * λ) / NA^2 = expected_bead_z_size (in nm)
 
     Parameters:
-        img_layer (napari.layers.): The image layer to analyze. Expected to have a `scale` attribute in micrometers (μm).
+        img_layer (napari.layers.): The image layer to analyze. Expected to have a `scale` attribute in nanometers (nm).
         error_widget (ErrorDisplayWidget): The widget to display errors and warnings.
         widget_settings (Dict[str, any]): Dictionary containing settings for the widget. Expected keys:
             - "RI_mounting_medium" (float): Refractive index of the mounting medium.
@@ -111,7 +111,7 @@ def report_z_spacing(img_layer, error_widget: ErrorDisplayWidget, widget_setting
     reflective_index = widget_settings["RI_mounting_medium"]
     emission = widget_settings["Emission"]
     numeric_aparature = widget_settings["NA"]
-    z_spacing = img_layer.scale[0] * 1000 # µn -> nm
+    z_spacing = img_layer.scale[0] # We now expect the scale to be for nanometers
 
     # Check if all required settings are present
     if None in (reflective_index, emission, numeric_aparature):
@@ -141,15 +141,86 @@ def error_handling_flat(img_data, error_widget):
     if standard_deviation < flat_threshold:
         error_widget.add_warning(f"Flat image detected. Standard deviation: {standard_deviation:.2f}")
 
-def save_statistics_to_file(stats, filename="image_statistics.csv"):
+def filter_psf_beads_by_box(result_dict, bead_figures, psf_bbox):
     """
-    Save image statistics to a CSV file.
+        Filter out beads based on whether they have a visual PSF in their image.
+        Image size is the same as psf_bbox. The visual bbox is found using result_dict: "FWHM_3D_Z", "FWHM_3D_Y" and "FWHM_3D_X".
+        Bead positions are found from result_dict: "z_pos", "y_pos" and "x_pos".
+
+        Parameters:
+            result_dict (Dict[str, List[float]]): Dictionary containing the results from the PSF analysis.
+            bead_figures (List[np.ndarray]): List of 3D images containing summary figures.
+            psf_bbox (Tuple[int, int, int]): The bounding box for the PSF analysis. z, y, x size.
+
+        Returns:
+            np.array(Figure): A List of summary figures that contain a visual PSF.
+    """
+    print(f"Dict length: {len(result_dict["z_pos"])} | Bead figures: {len(bead_figures)}")
+
+    if len(result_dict["z_pos"]) != len(result_dict["y_pos"]):
+        raise ValueError("Z and Y positions do not match in length.")
+
+    psf_bbox_positions = []
+    visual_bbox_positions = []
+    for i in range(len(result_dict["z_pos"])):
+        z = result_dict["z_pos"][i]
+        y = result_dict["y_pos"][i]
+        x = result_dict["x_pos"][i]
+        visual_bbox = (result_dict["FWHM_3D_Z"][i], result_dict["FWHM_3D_Y"][i], result_dict["FWHM_3D_X"][i])
+        psf_bbox_positions.append( _get_psf_bbox(psf_bbox, z, y, x))
+        visual_bbox_positions.append( _get_psf_bbox(visual_bbox, z, y, x))
+
+    return filter_beads(psf_bbox_positions, visual_bbox_positions, bead_figures)
+
+
+def _get_psf_bbox(psf_bbox, z, y, x):
+    """
+        Translate the bbox size to max, min coordinates based on the bead position.
+    """
+    z_min = z - psf_bbox[0] // 2
+    z_max = z + psf_bbox[0] // 2
+    y_min = y - psf_bbox[1] // 2
+    y_max = y + psf_bbox[1] // 2
+    x_min = x - psf_bbox[2] // 2
+    x_max = x + psf_bbox[2] // 2
+    return [z_min, z_max, y_min, y_max, x_min, x_max]
+
+
+def filter_beads(psf_bboxes, visual_psf_bboxes, beads):
+    """
+    Filter out beads whose PSF_bbox intersects any visual_PSF_bbox.
 
     Parameters:
-        stats (dict): A dictionary containing intensity ranges and percentages.
-        filename (str): The file to save statistics to.
+      psf_bboxes: List of 3D bounding boxes.
+      visual_psf_bboxes: List of 3D bounding boxes (both bboxes formatted as
+                                                    List[min_z, min_y, min_x, max_z, max_y, max_x])
+      beads: List of beads. Expected to be a list of summary figures, but can be any list.
+
+    Returns:
+      A list of beads that do not have an intersecting PSF_bbox with any visual_PSF_bbox.
     """
-    # Save as a CSV using Pandas
-    df = pd.DataFrame(stats.items(), columns=["Intensity Range", "Percentage"])
-    df.to_csv(filename, index=False)
-    show_info("Statistics saved to file.")
+    filtered = []
+    for i in range(len(beads)):
+        bead_box = psf_bboxes[i]
+        # Skip bead if its PSF_bbox intersects any visual_PSF_bbox
+        if any(intersects_3d(bead_box, vbox) for vbox in visual_psf_bboxes):
+            continue
+        filtered.append(beads[i])
+    return filtered
+
+
+def intersects_3d(box1, box2):
+    """
+    Check if two 3D bounding boxes intersect.
+
+    Each box is in the format:
+      [min_z, min_y, min_x, max_z, max_y, max_x]
+    """
+    return not (
+            box1[3] < box2[0] or  # box1 is entirely before box2 in z
+            box1[0] > box2[3] or  # box1 is entirely after box2 in z
+            box1[4] < box2[1] or  # box1 is entirely below box2 in y
+            box1[1] > box2[4] or  # box1 is entirely above box2 in y
+            box1[5] < box2[2] or  # box1 is entirely left of box2 in x
+            box1[2] > box2[5]  # box1 is entirely right of box2 in x
+    )

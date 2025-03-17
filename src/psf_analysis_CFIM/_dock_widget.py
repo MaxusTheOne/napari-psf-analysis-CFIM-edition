@@ -41,7 +41,7 @@ from psf_analysis_CFIM.error_widget.error_display_widget import ErrorDisplayWidg
 from psf_analysis_CFIM.library_workarounds.RangeDict import RangeDict
 from psf_analysis_CFIM.mounting_medium_selector import MountingMediumSelector
 from psf_analysis_CFIM.psf_analysis.analyzer import Analyzer
-from psf_analysis_CFIM.psf_analysis.image_analysis import analyze_image
+from psf_analysis_CFIM.psf_analysis.image_analysis import analyze_image, filter_psf_beads_by_box
 from psf_analysis_CFIM.psf_analysis.parameters import PSFAnalysisInputs
 from psf_analysis_CFIM.psf_analysis.psf import PSF
 from psf_analysis_CFIM.range_indicator_button import ToggleRangeIndicator
@@ -504,8 +504,8 @@ class PsfAnalysis(QWidget):
             self.airy_unit.setValue(round(float(metadata["PinholeSizeAiry"]), 2))
             self.excitation.setValue(round(float(metadata["ExcitationWavelength"]),2))
             self.emission.setValue(round(float(metadata["EmissionWavelength"]),2))
-            self.xy_pixelsize.setValue(round(float(layer.scale[1])*1000,2))
-            self.z_spacing.setValue(round(float(layer.scale[0])*1000,2))
+            self.xy_pixelsize.setValue(round(float(layer.scale[1]),2))
+            self.z_spacing.setValue(round(float(layer.scale[0]),2))
         except KeyError as e:
             print(f"Missing metadata for settings: {e} and possible more")
 
@@ -589,7 +589,10 @@ class PsfAnalysis(QWidget):
 
                 bead_img_stack = analyzer.get_raw_beads_filtered()
                 print(f"bead img stack 0: {bead_img_stack[0].shape()}")
-                print(f"Results for 0: {self.results["ImageName"]}")
+                print(f"Position of 0: ({self.results["z_pos"][0]}, {self.results["y_pos"][0]}, {self.results["x_pos"][0]})")
+
+                filtered_figs = filter_psf_beads_by_box(self.results, measurement_stack, (self.psf_z_box_size.value(), self.psf_yx_box_size.value(), self.psf_yx_box_size.value()))
+                print(f"Figs length: {len(filtered_figs)}")
 
                 # Creates an image of the average bead, runs the PSF analysis on it and creates summary image.
                 averaged_bead = analyzer.get_averaged_bead()
@@ -642,11 +645,11 @@ class PsfAnalysis(QWidget):
         def _reset_state():
             if self.cancel_extraction:
                 self.progressbar.setValue(0)
-            self.cancel_extraction = False
-            self.cancel.setEnabled(False)
-            self.cancel.setText("Cancel")
-            self.extract_psfs.setEnabled(True)
-            self.progressbar.reset()
+                self.cancel_extraction = False
+                self.cancel.setEnabled(False)
+                self.cancel.setText("Cancel")
+                self.extract_psfs.setEnabled(True)
+                self.progressbar.reset()
 
         @thread_worker(progress={"total": len(point_data)})
         def measure():

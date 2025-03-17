@@ -144,7 +144,7 @@ class Analyzer:
         count = 1
         unique_name = name
         while unique_name in self._result_figures.keys():
-            unique_name = f"{name}-{count}"
+            unique_name = f"{name}-({count})"
             count += 1
         return unique_name
 
@@ -182,7 +182,7 @@ class Analyzer:
         Returns
         -------
         stack of all summary figures
-        scaling to display them with napari -> Literally just the given scaling??
+        scaling to display them with napari
         """
         if len(self._result_figures) > 0:
             measurement_stack = self._build_figure_stack()
@@ -282,6 +282,9 @@ class Analyzer:
                 "sde_cov_xx_2D": self._results["yx_cxx_sde"],
                 "sde_cov_xy_2D": self._results["yx_cyx_sde"],
                 "sde_cov_yy_2D": self._results["yx_cyy_sde"],
+                "z_pos": self._results["z_mu"],
+                "y_pos": self._results["y_mu"],
+                "x_pos": self._results["x_mu"],
                 "version": self._results["version"],
                 "PSF_path": self._results["PSF_path"],
             }

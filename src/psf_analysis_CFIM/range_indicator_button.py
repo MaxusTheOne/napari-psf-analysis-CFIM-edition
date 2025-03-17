@@ -14,11 +14,12 @@ class ToggleRangeIndicator(QWidget):
 
     def init_ui(self):
 
-        self.button = QPushButton("Toggle Range Indicator")
-        self.button.clicked.connect(self.toggle_range_indicator)
+        self.button = QPushButton("Range Indicator")
+        self.button.setCheckable(True)
+        self.button.toggled.connect(self.toggle_range_indicator)
         return self.button
 
-    def toggle_range_indicator(self):
+    def toggle_range_indicator(self, checked):
         layer = self.psf_analysis_widget.get_current_img_layer()
 
         if self.label_layer:
