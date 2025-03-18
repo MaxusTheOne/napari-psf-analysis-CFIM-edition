@@ -82,11 +82,12 @@ class PSFRenderEngine:
         ax_Z1.axis("off")
 
     def render(
-        self, date: str = None, version: str = None, dpi: int = 300, *, top_left_message: str = None
+        self, date: str = None, version: str = None, dpi: int = 300, *, top_left_message: str = None, centroid: Tuple[float, float, float] = None
     ) -> ArrayLike:
+
         self._build_layout(dpi=dpi)
         self._add_projections(dpi=dpi)
-        self._add_ellipsoids()
+        self._add_ellipsoids(centroid)
 
         if date is not None:
             self._add_date(date)
@@ -425,14 +426,17 @@ class PSFRenderEngine:
 
         return False
 
-    def _add_ellipsoids(self):
+    def _add_ellipsoids(self, centroid: Tuple[float, float, float]):
         self._configure_ticks_and_bounds()
 
         if not self._has_nan_fwhm():
             self._add_axis_aligned_ellipsoid() # Adds a grey ellipsoid from the fwhm of yx and z fits
 
         # self._add_zyx_ellipsoid() # Adds a blue ellipsoid from covariance
-        self._add_principal_components_annotons() # Adds axes annotation next to the ellipsoid figure, from something from the fit idk.
+        self._ax_3d_text.set_xlim(0, 100)
+        self._ax_3d_text.set_ylim(0, 100)
+        if centroid:
+            self._add_principal_components_annotons(centroid) # Adds axes annotation next to the ellipsoid figure, from something from the fit idk.
 
     def _add_axis_aligned_ellipsoid(self):
         from psf_analysis_CFIM.psf_analysis.utils import sigma
@@ -607,35 +611,34 @@ class PSFRenderEngine:
         self._ax_3d.set_ylim(-1500, 1500)
         self._ax_3d.set_zlim(-2000, 2000)
 
-    def _add_principal_components_annotons(self):
-        self._ax_3d_text.set_xlim(0, 100)
-        self._ax_3d_text.set_ylim(0, 100)
+    def _add_principal_components_annotons(self,centroid):
+
         self._ax_3d_text.text(
-            3,
+            -5,
             95,
-            "Principal Axes",
+            "Coordinates (nm)",
             fontsize=14,
             weight="bold",
             color="navy",
         )
         self._ax_3d_text.text(
-            5,
+            0,
             89,
-            f"{self._get_fwhm_str(self.psf_record.zyx_fit.zyx_pc1_fwhm)}nm",
+            f"Z|{round(centroid[0],1)}",
             fontsize=14,
             color="navy",
         )
         self._ax_3d_text.text(
-            5,
+            0,
             83,
-            f"{self._get_fwhm_str(self.psf_record.zyx_fit.zyx_pc2_fwhm)}nm",
+            f"Y|{round(centroid[1],1)}",
             fontsize=14,
             color="navy",
         )
         self._ax_3d_text.text(
-            5,
+            0,
             77,
-            f"{self._get_fwhm_str(self.psf_record.zyx_fit.zyx_pc2_fwhm)}nm",
+            f"X|{round(centroid[2],1)}",
             fontsize=14,
             color="navy",
         )
@@ -710,9 +713,11 @@ class PSF:
         *,
         top_left_message: str = None,
         ellipsoid_color: str = "black",
+        centroid = None,
     ) -> ArrayLike:
+        print(f"All get_summary_image params: {date}, {version}, {dpi}, {top_left_message}, {ellipsoid_color}, {centroid}")
         engine = PSFRenderEngine(psf_image=self.image, psf_record=self.psf_record, ellipsoid_color=ellipsoid_color)
-        return engine.render(date=date, version=version, dpi=dpi, top_left_message=top_left_message)
+        return engine.render(date=date, version=version, dpi=dpi, top_left_message=top_left_message, centroid=centroid)
 
     def get_summary_dict(self) -> dict:
         return {

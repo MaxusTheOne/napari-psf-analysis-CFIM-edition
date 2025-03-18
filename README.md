@@ -1,21 +1,19 @@
 ## Installation
 
 You can install this package using one of the following options:
-
 ```bash
-pip install git+https://github.com/MaxusTheOne/napari-psf-analysis-CFIM-edition
-```
-To install the latest version (not guaranteed to be stable)
-
-or
-
-```bash
-pip install psf-analysis-CFIM
+  pip install psf-analysis-CFIM
 ```
 For the latest stable version (recommended)
 
 ---
 
+or
+
+```bash
+  pip install git+https://github.com/MaxusTheOne/napari-psf-analysis-CFIM-edition
+```
+To install the latest version (not guaranteed to be stable)
 ## About
 
 This is a **fork** of the [napari-psf-analysis](https://github.com/fmi-faim/napari-psf-analysis) project.

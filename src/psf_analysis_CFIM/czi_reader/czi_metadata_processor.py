@@ -1,3 +1,4 @@
+import warnings
 import xml.etree.ElementTree as ET
 
 from psf_analysis_CFIM.library_workarounds.RangeDict import RangeDict
@@ -13,9 +14,17 @@ def recursive_find(element, tag, num):
     for child in element:
         result = recursive_find(child, tag, number)
         if result is not None:
+            print(f"/{element.tag}", end="")
             return result
     return None
 
+def find_in_xml_tree(xml_tree, tag):
+    """
+        Finds all occurrences of a tag in an XML tree.
+        Returns a list of elements.
+    """
+    elements = xml_tree.findall(f".//{tag}")
+    return elements
 
 
 wavelength_to_color = RangeDict(
@@ -28,84 +37,64 @@ wavelength_to_color = RangeDict(
              (625, 740, "Red")])
 
 
-def extract_key_metadata(xml_metadata, reader):
+def extract_key_metadata(reader, channels):
     """
-    Extracts a few key metadata fields from the reader's XML metadata and stores them in the metadata property.
+    Extracts specified metadata from reader.metadata and returns it as a list of dictionaries.
+    With index being a dictionary for each channel.
 
     Parameters:
         reader: A CziReader instance that already has its metadata loaded.
+        channels: int -> The number of channels in the image.
 
     Returns:
-        dict: A dictionary with allowed keys for Napari and a nested custom metadata.
+        dict_list -> A list of dictionaries with the metadata for each channel.
     """
+    # Define the keys to extract from the metadata
+    keys = ["LensNA", "CameraName", "NominalMagnification", "PinholeSizeAiry", "ExcitationWavelength", "EmissionWavelength", "ObjectiveName", "DefaultScalingUnit"]
 
-    # List the keys of the root element's attributes
-    print("All attributes of the XML element:")
-    for key in xml_metadata:
-        print(f"{key}")
-    # Start with keys that Napari is expecting.
+    # Get the xml metadata from the reader
+    xml_metadata = reader.metadata
+    key_dict = {}
+    for key in keys:
+        data = find_in_xml_tree(xml_metadata, key)
+        if data:
+            key_dict[key] = data
+        else:
+            print(f"No metadata found for {key}")
+            key_dict[key] = None
 
-    # image_document = xml_metadata["ImageDocument"]
-    # _metadata = image_document["Metadata"]
-    # display_settings = _metadata["DisplaySettings"]
-    # channels = display_settings["Channels"]
-    # channel = channels["Channel"]
-    # information = _metadata["Information"]
-    # image = information["Image"]
-    # print(f"Channel: {channel} | Channels: {channels}")
-
-    # Define the mapping between our desired custom keys and the XML tag names.
-    key_mapping = {
-        "LensNA": "LensNA",
-        "CameraName": "CameraName",
-        "NominalMagnification": "NominalMagnification",
-        "PinholeSizeAiry": "PinholeSizeAiry",
-        "ExcitationWavelength": "ExcitationWavelength",
-        "EmissionWavelength": "EmissionWavelength",
-        "ObjectiveName": "ObjectiveName",
-        "OriginalUnits": "DefaultScalingUnit",
-    }
-
-    custom_meta = {}
-
-
-    # If the metadata is already an XML element, search for each tag.
-    if isinstance(xml_metadata, ET.Element):
-        for custom_key, xml_tag in key_mapping.items():
-            print(f"{custom_key} path:", end="")
-            found = recursive_find(xml_metadata, xml_tag, 0)
-            print("")
-            if found is not None and found.text:
-                custom_meta[custom_key] = found.text.strip()
-            else:
-                custom_meta[custom_key] = None  # Or a default value like "Not available"
-    else:
-        # If it's not an XML Element, store a string version for each.
-        for custom_key in key_mapping:
-            custom_meta[custom_key] = str(xml_metadata)
-
-    # Convert the scale to nanometers if it's in micrometers.
     try:
-        # /Scaling/Items/Distance/DefaultUnitFormat
-        # original_units = _metadata["Scaling"]["Items"]["Distance"]["DefaultUnitFormat"]
-        original_units = custom_meta["OriginalUnits"]
-        print(f"Original units: {original_units}")
-        emission_wavelength = int(custom_meta["EmissionWavelength"])
+        original_units = key_dict["DefaultScalingUnit"][0].text
     except KeyError:
-        original_units = None
-        emission_wavelength = None
+        warnings.warn("No OriginalUnits found. Assuming micrometre(µm)")
+        original_units = "µm"
 
     if original_units == "micrometre" or original_units == "µm":
-        scale_nm = (reader.physical_pixel_sizes.Z, reader.physical_pixel_sizes.Y, reader.physical_pixel_sizes.X)
-        scale = [s * 1000 for s in scale_nm]
+        nm_scale = (reader.physical_pixel_sizes.Z, reader.physical_pixel_sizes.Y, reader.physical_pixel_sizes.X)
+        scale = [s * 1000 for s in nm_scale]
         units = "nm"
     else:
         scale = reader.physical_pixel_sizes
         units = original_units
 
 
+    dict_list = []
 
-    metadata = {"scale": scale, "units": units, "metadata": custom_meta, "blending": "additive"}
+    for channel in range(channels):
+        metadata_metadata = {}
+        for key, data in key_dict.items():
+            if data:
+                if len(data) == 1:
+                    metadata_metadata[key] = data[0].text
+                    continue
+                if len(data) < channels:
+                    raise ValueError(f"Number of entries should be 1 or equal(or more) to the number of channels. Found {len(data)} entries for {key}")
+                metadata_metadata[key] = data[channel].text
+            else:
+                metadata_metadata[key] = None
+        colormap = wavelength_to_color[int(metadata_metadata["EmissionWavelength"])]
+        metadata = {"scale": scale, "units": units, "metadata": metadata_metadata, "blending": "additive", "colormap": colormap}
+        print(f"Metadata for channel {channel}: {metadata}")
+        dict_list.append(metadata)
 
-    # Nest the custom metadata under a single key.
-    return metadata
+    return dict_list

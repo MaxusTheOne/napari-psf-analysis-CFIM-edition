@@ -588,11 +588,9 @@ class PsfAnalysis(QWidget):
                 self.summary_figs = measurement_stack
 
                 bead_img_stack = analyzer.get_raw_beads_filtered()
-                print(f"bead img stack 0: {bead_img_stack[0].shape()}")
-                print(f"Position of 0: ({self.results["z_pos"][0]}, {self.results["y_pos"][0]}, {self.results["x_pos"][0]})")
 
                 filtered_figs = filter_psf_beads_by_box(self.results, measurement_stack, (self.psf_z_box_size.value(), self.psf_yx_box_size.value(), self.psf_yx_box_size.value()))
-                print(f"Figs length: {len(filtered_figs)}")
+                print(f"Theoretical filtered list len: {len(filtered_figs)}")
 
                 # Creates an image of the average bead, runs the PSF analysis on it and creates summary image.
                 averaged_bead = analyzer.get_averaged_bead()

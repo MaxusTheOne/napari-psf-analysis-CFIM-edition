@@ -55,13 +55,15 @@ class Analyzer:
                 if psf.error:
                     raise InvalidShapeError(f"Discarding bead due to analyze error: {self._index}")
                 results = psf.get_summary_dict()
+                extended_results = self._extend_result_table(bead, results)
                 self._add(
-                    self._extend_result_table(bead, results),
+                    extended_results,
                     psf.get_summary_image(
                         date=self._parameters.date,
                         version=self._parameters.version,
                         dpi=self._parameters.dpi,
                         ellipsoid_color=self._wavelength_color,
+                        centroid= (extended_results["z_mu"], extended_results["y_mu"], extended_results["x_mu"]),
                     ),
                 )
             except InvalidShapeError as e:
@@ -121,7 +123,6 @@ class Analyzer:
         extended_results["yx_spacing"] = self._parameters.spacing[1]
         extended_results["z_spacing"] = self._parameters.spacing[0]
         extended_results["version"] = self._parameters.version
-
         return extended_results
 
     def _add(self, result: dict, summary_fig: ArrayLike):
@@ -189,6 +190,7 @@ class Analyzer:
             measurement_scale = self._compute_figure_scaling(
                 bead_img_scale, bead_img_shape, measurement_stack
             )
+
             return measurement_stack, measurement_scale
         else:
             return None, None

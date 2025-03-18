@@ -1,4 +1,5 @@
 import os
+from typing import overload
 
 import numpy as np
 from napari.utils.theme import opacity
@@ -52,6 +53,23 @@ class DebugClass:
 
     def show_3d_array(self, index):
         self._viewer.add_image(self.get(index))
+
+    @overload
+    def add_nm_point(self, point: tuple[float, float, float]):
+        pass
+
+    @overload
+    def add_nm_point(self, z: float, y: float, x: float):
+        pass
+
+
+    def add_nm_point(self, *args):
+        if len(args) == 1:
+            point = args[0]
+        else:
+            point = (args[0], args[1], args[2])
+        scaled_point = point / self._widget.get_scale()
+        self._viewer.add_points(scaled_point, size=10, face_color='violet', name="nm_point", scale=self._widget.get_scale())
 
     def show_psf_box(self, index):
         if self._set_bead_point_layer():
