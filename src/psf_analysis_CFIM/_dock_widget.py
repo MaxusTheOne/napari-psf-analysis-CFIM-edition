@@ -38,6 +38,7 @@ from psf_analysis_CFIM.config.settings_widget import SettingsWidget
 from psf_analysis_CFIM.debug import global_vars
 from psf_analysis_CFIM.debug.debug import report_error_debug
 from psf_analysis_CFIM.error_widget.error_display_widget import ErrorDisplayWidget, report_error, report_warning
+from psf_analysis_CFIM.image_selector_dropdown import ImageSelectorDropDown
 from psf_analysis_CFIM.library_workarounds.RangeDict import RangeDict
 from psf_analysis_CFIM.mounting_medium_selector import MountingMediumSelector
 from psf_analysis_CFIM.psf_analysis.analyzer import Analyzer
@@ -351,34 +352,32 @@ class PsfAnalysis(QWidget):
     def _add_basic_settings_tab(self, setting_tabs):
         basic_settings = QWidget(parent=setting_tabs)
         setting_tabs.addTab(basic_settings, "Basic")
-        basic_settings.setLayout(QFormLayout(setting_tabs))
-        self.cbox_img = QComboBox(parent=basic_settings)
-        self.cbox_img.setToolTip(
-            "Image layer with the measured point spread functions (PSFs)."
-        )
+
+        layout = QFormLayout(basic_settings)
+        basic_settings.setLayout(layout)
+
+        self.image_selection = ImageSelectorDropDown(parent=basic_settings)
+        self.image_selector = self.image_selection.init_ui()
+        layout.addRow(QLabel("Image2", basic_settings),self.image_selector)
+
+        self.cbox_img = self.image_selection.drop_down
         self.cbox_point = QComboBox(parent=basic_settings)
         self.cbox_point.setToolTip(
             "Points layer indicating which PSFs should " "be measured."
         )
-        basic_settings.layout().addRow(QLabel("Image", basic_settings), self.cbox_img)
-        basic_settings.layout().addRow(
+        layout.addRow(
             QLabel("Points", basic_settings), self.cbox_point
         )
         self.date = QDateEdit(datetime.today())
         self.date.setToolTip("Acquisition date of the PSFs.")
-        basic_settings.layout().addRow(
+        layout.addRow(
             QLabel("Acquisition Date", basic_settings), self.date
         )
-        # microscope_options = get_microscopes(get_psf_analysis_settings_path())
-        # if isinstance(microscope_options, list):
-        # self.microscope = QComboBox(parent=basic_settings)
-            # self.microscope.addItems(microscope_options)
-        # else:
         self.microscope = QLineEdit("Undefined")
         self.microscope.setToolTip(
             "Name of the microscope which was used to" " acquire the PSFs."
         )
-        basic_settings.layout().addRow(
+        layout.addRow(
             QLabel("Microscope", basic_settings), self.microscope
         )
         self.magnification = QSpinBox(parent=basic_settings)
@@ -387,12 +386,12 @@ class PsfAnalysis(QWidget):
         self.magnification.setMaximum(10000)
         self.magnification.setValue(100)
         self.magnification.setSingleStep(10)
-        basic_settings.layout().addRow(
+        layout.addRow(
             QLabel("Magnification", basic_settings), self.magnification
         )
         self.objective_id = QLineEdit("obj_1")
         self.objective_id.setToolTip("Objective identifier (or name).")
-        basic_settings.layout().addRow(
+        layout.addRow(
             QLabel("Objective ID", basic_settings), self.objective_id
         )
         self.na = QDoubleSpinBox(parent=basic_settings)
@@ -401,14 +400,14 @@ class PsfAnalysis(QWidget):
         self.na.setMaximum(1.7)
         self.na.setSingleStep(0.05)
         self.na.setValue(1.4)
-        basic_settings.layout().addRow(QLabel("NA", basic_settings), self.na)
+        layout.addRow(QLabel("NA", basic_settings), self.na)
         self.xy_pixelsize = QDoubleSpinBox(parent=basic_settings)
         self.xy_pixelsize.setToolTip("Pixel size in XY dimensions in nano " "meters.")
         self.xy_pixelsize.setMinimum(0.0)
         self.xy_pixelsize.setMaximum(10000.0)
         self.xy_pixelsize.setSingleStep(10.0)
         self.xy_pixelsize.setValue(65.0)
-        basic_settings.layout().addRow(
+        layout.addRow(
             QLabel("XY-Pixelsize [nm]", basic_settings), self.xy_pixelsize
         )
         self.z_spacing = QDoubleSpinBox(parent=basic_settings)
@@ -419,7 +418,7 @@ class PsfAnalysis(QWidget):
         self.z_spacing.setMaximum(10000.0)
         self.z_spacing.setSingleStep(10.0)
         self.z_spacing.setValue(200.0)
-        basic_settings.layout().addRow(
+        layout.addRow(
             QLabel("Z-Spacing [nm]", basic_settings), self.z_spacing
         )
         self.psf_yx_box_size = QDoubleSpinBox(parent=basic_settings)
@@ -431,7 +430,7 @@ class PsfAnalysis(QWidget):
         self.psf_yx_box_size.setMaximum(1000000.0)
         self.psf_yx_box_size.setSingleStep(500.0)
         self.psf_yx_box_size.setValue(2000.0)
-        basic_settings.layout().addRow(
+        layout.addRow(
             QLabel("PSF YX Box Size [nm]", basic_settings), self.psf_yx_box_size
         )
         self.psf_z_box_size = QDoubleSpinBox(parent=basic_settings)
@@ -442,9 +441,10 @@ class PsfAnalysis(QWidget):
         self.psf_z_box_size.setMaximum(1000000.0)
         self.psf_z_box_size.setSingleStep(500.0)
         self.psf_z_box_size.setValue(2500.0)
-        basic_settings.layout().addRow(
+        layout.addRow(
             QLabel("PSF Z Box Size [nm]", basic_settings), self.psf_z_box_size
         )
+
 
     # Rework to interact with settings | And do something I guess
     def select_save_dir(self):
