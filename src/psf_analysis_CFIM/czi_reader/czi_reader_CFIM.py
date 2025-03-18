@@ -57,7 +57,6 @@ def read_czi(path):
     metadata_list = extract_key_metadata(reader, channels)
 
     file_name_trunked = truncate_filename(file_name, 20)
-    print(f"Reading {file_name_trunked} with {channels} channels.")
 
     layer_data_list = []
     for channel in range(channels):

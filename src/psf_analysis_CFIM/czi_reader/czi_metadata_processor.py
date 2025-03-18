@@ -94,7 +94,7 @@ def extract_key_metadata(reader, channels):
                 metadata_metadata[key] = None
         colormap = wavelength_to_color[int(metadata_metadata["EmissionWavelength"])]
         metadata = {"scale": scale, "units": units, "metadata": metadata_metadata, "blending": "additive", "colormap": colormap}
-        print(f"Metadata for channel {channel}: {metadata}")
+
         dict_list.append(metadata)
 
     return dict_list

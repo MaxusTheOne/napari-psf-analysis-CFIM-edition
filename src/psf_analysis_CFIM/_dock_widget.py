@@ -356,7 +356,7 @@ class PsfAnalysis(QWidget):
         layout = QFormLayout(basic_settings)
         basic_settings.setLayout(layout)
 
-        self.image_selection = ImageSelectorDropDown(parent=basic_settings)
+        self.image_selection = ImageSelectorDropDown(parent=basic_settings, viewer=self.viewer)
         self.image_selector = self.image_selection.init_ui()
         layout.addRow(QLabel("Image2", basic_settings),self.image_selector)
 
