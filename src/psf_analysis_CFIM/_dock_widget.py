@@ -158,6 +158,7 @@ class PsfAnalysis(QWidget):
 
 
 
+
     def use_config(self):
         settings = self.settings_Widget.settings
         ui_settings = settings["ui_settings"]
@@ -357,8 +358,8 @@ class PsfAnalysis(QWidget):
         basic_settings.setLayout(layout)
 
         self.image_selection = ImageSelectorDropDown(parent=basic_settings, viewer=self.viewer)
-        self.image_selector = self.image_selection.init_ui()
-        layout.addRow(QLabel("Image2", basic_settings),self.image_selector)
+
+        layout.addRow(QLabel("Image2", basic_settings),self.image_selection.init_ui())
 
         self.cbox_img = self.image_selection.drop_down
         self.cbox_point = QComboBox(parent=basic_settings)
@@ -512,6 +513,8 @@ class PsfAnalysis(QWidget):
     def _create_bead_finder(self):
         if self.bead_finder is None:
             self.find_beads_button.setEnabled(True)
+
+        image_layers = self.image_selector
 
         layer = self.viewer.layers[self.cbox_img.currentText()]
         self.bead_finder = BeadFinder(layer.data, layer.scale, bounding_box=(self.psf_z_box_size.value(), self.psf_yx_box_size.value(), self.psf_yx_box_size.value()))
