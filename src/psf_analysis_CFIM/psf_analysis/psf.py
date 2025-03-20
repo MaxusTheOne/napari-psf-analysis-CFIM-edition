@@ -715,7 +715,6 @@ class PSF:
         ellipsoid_color: str = "black",
         centroid = None,
     ) -> ArrayLike:
-        print(f"All get_summary_image params: {date}, {version}, {dpi}, {top_left_message}, {ellipsoid_color}, {centroid}")
         engine = PSFRenderEngine(psf_image=self.image, psf_record=self.psf_record, ellipsoid_color=ellipsoid_color)
         return engine.render(date=date, version=version, dpi=dpi, top_left_message=top_left_message, centroid=centroid)
 

@@ -76,7 +76,7 @@ class ImageSelectorDropDown(QWidget):
         if len(self._selected_as_layers) == 1:
             return self._selected_as_layers[0]
         else:
-            raise ValueError("More than one image selected | Legacy code, will break on purpose")
+            raise ValueError("More than one image selected | Temp fix for legacy code, intended to break on purpose :3 ")
 
     def set_selected_to_layers(self, layers):
         if type(layers) != list:
@@ -88,30 +88,47 @@ class ImageSelectorDropDown(QWidget):
             layers = [layers]
 
         if len(layers) == 1:
-            self._selected_as_layers = [self._viewer.layers[layers[0].name]]
+            text = layers[0].name
+            self._selected_as_layers = [self._viewer.layers[text]]
+            self.drop_down.setCurrentIndex(self.drop_down.findText(text))
+
+        if len(layers) > 1:
+            self._set_multi_image_dropdown(len(layers))
+
+        if len(layers) == 0:
+            print(f"Selected layers: {layers} | multi: {self._multi_image_selection}")
         self._selected_as_layers = layers
 
 
 
     def _on_index_changed(self):
         text = self.drop_down.currentText()
+
+        if text == self._multi_image_selection:
+            return
         if text != self._multi_image_selection:
             self._clear_multi_image_selection()
+
         self._selected_as_layers = [self._viewer.layers[text]]
 
     # region private methods
     def _change_dropdown_to_images(self, selected_images_dict: list):
         self._selected_as_layers = self._names_to_layers(selected_images_dict)
 
-        self._clear_multi_image_selection()
-        text = f"{len(self._selected_as_layers)} images"
-        self.drop_down.addItem(text)
-        self.drop_down.setCurrentIndex(self.drop_down.findText(text))
+        self._set_multi_image_dropdown(len(selected_images_dict))
 
-        self._multi_image_selection = text
+    def _set_multi_image_dropdown(self, images_amount:int):
+        self._clear_multi_image_selection()
+
+        x_images_text = f"{images_amount} images"
+        self._multi_image_selection = x_images_text
+
+        self.drop_down.addItem(x_images_text)
+        self.drop_down.setCurrentIndex(self.drop_down.findText(x_images_text))
 
 
     def _clear_multi_image_selection(self):
+
         if self._multi_image_selection != "":
             self.drop_down.removeItem(self.drop_down.findText(self._multi_image_selection))
         self._multi_image_selection = ""

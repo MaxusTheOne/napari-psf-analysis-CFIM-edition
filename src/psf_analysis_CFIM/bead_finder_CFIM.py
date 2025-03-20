@@ -33,6 +33,7 @@ class BeadFinder:
         yx_beads, discarded_xy = self._maxima(image)
         zyx_beads, zyx_discarded_beads = self._find_bead_positions(yx_beads)
         # TODO: OPTIMIZE Use a better algorithm for neighbor distance. This one is O(n^2). VERY SLOW.
+        # TODO: Keep previously discarded beads to check neighbors
         beads, discarded_beads_by_neighbor_dist = self.filter_beads_by_neighbour_distance(zyx_beads)
         yx_discarded_beads, x = self._find_bead_positions(discarded_xy, no_filter=True) # Convert discarded yx beads to zyx
 

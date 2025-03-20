@@ -45,7 +45,8 @@ class QLineEditWithColormap(QLineEdit):
     def __init__(self, colormap_name: str, parent=None):
         super().__init__(parent)
         self._colormap_name = colormap_name
-        print(f"Element size: {self.width()} x {self.height()}")
+        if self.width() < 100 or self.height() < 30:
+            print(f"Element size: {self.width()} x {self.height()}")
         self._pixmap = get_colormap_pixmap(colormap_name, self.width(), self.height())
 
         self.setStyleSheet("QLineEdit { background: transparent; color: white; }")
