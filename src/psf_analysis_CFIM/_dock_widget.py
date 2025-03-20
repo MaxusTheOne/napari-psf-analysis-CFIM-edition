@@ -517,8 +517,7 @@ class PsfAnalysis(QWidget):
         image_layers = self.image_selection.get_as_layers()
         print(f"Image layers len: {len(image_layers)}")
 
-        for layer in image_layers:
-            self.bead_finder = BeadFinder(layer.data, layer.scale, bounding_box=(self.psf_z_box_size.value(), self.psf_yx_box_size.value(), self.psf_yx_box_size.value()))
+        self.bead_finder = BeadFinder(image_layers, self.get_scale(), bounding_box=(self.psf_z_box_size.value(), self.psf_yx_box_size.value(), self.psf_yx_box_size.value()))
 
 
 
@@ -799,7 +798,12 @@ class PsfAnalysis(QWidget):
         return self.viewer.layers[self.cbox_point.currentText()]
 
     def get_current_img_layer(self):
-        return self.viewer.layers[self.cbox_img.currentText()]
+
+        for layer in self.viewer.layers:
+            if type(layer) == napari.layers.Image:
+                return layer
+        print(f"Error: No image layer found")
+        return 0
 
     def get_scale(self):
         return self.get_current_img_layer().scale
