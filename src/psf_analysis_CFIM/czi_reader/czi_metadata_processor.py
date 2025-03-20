@@ -36,7 +36,7 @@ wavelength_to_color = RangeDict(
              (590, 625, "Orange"),
              (625, 740, "Red")])
 
-
+# TODO: Fix pint warning
 def extract_key_metadata(reader, channels):
     """
     Extracts specified metadata from reader.metadata and returns it as a list of dictionaries.

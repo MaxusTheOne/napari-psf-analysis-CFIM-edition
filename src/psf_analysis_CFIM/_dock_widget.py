@@ -514,10 +514,11 @@ class PsfAnalysis(QWidget):
         if self.bead_finder is None:
             self.find_beads_button.setEnabled(True)
 
-        image_layers = self.image_selector
+        image_layers = self.image_selection.get_as_layers()
+        print(f"Image layers len: {len(image_layers)}")
 
-        layer = self.viewer.layers[self.cbox_img.currentText()]
-        self.bead_finder = BeadFinder(layer.data, layer.scale, bounding_box=(self.psf_z_box_size.value(), self.psf_yx_box_size.value(), self.psf_yx_box_size.value()))
+        for layer in image_layers:
+            self.bead_finder = BeadFinder(layer.data, layer.scale, bounding_box=(self.psf_z_box_size.value(), self.psf_yx_box_size.value(), self.psf_yx_box_size.value()))
 
 
 

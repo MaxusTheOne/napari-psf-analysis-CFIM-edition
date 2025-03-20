@@ -8,7 +8,9 @@ from PyQt5.QtGui import QPalette, QImage, QPixmap
 from PyQt5.QtWidgets import QHBoxLayout, QWidget, QComboBox, QPushButton, QApplication, QTabWidget, QLabel, QMessageBox, \
     QGroupBox, QDialog, QVBoxLayout, QDialogButtonBox, QCheckBox, QFormLayout, QLineEdit, QGridLayout
 
+from psf_analysis_CFIM.library_workarounds.QLineEditWithColormapBg import QLineEditWithColormap
 
+# TODO: Potentially change this to manage access to image layers
 class ImageSelectorDropDown(QWidget):
     def __init__(self, parent=None, viewer=None):
         super().__init__(parent)
@@ -17,7 +19,8 @@ class ImageSelectorDropDown(QWidget):
 
         self._viewer = viewer
 
-        self._images: List[napari.layers.Image] = []
+        # Too scared of layers changing position in the viewer to use references instead of storing the layers
+        self._selected_as_layers: List[napari.layers.Image] = []
         self._multi_image_selection = ""
 
 
@@ -63,21 +66,45 @@ class ImageSelectorDropDown(QWidget):
         elif len(selected_images_dict) <= len(images):
             self._change_dropdown_to_images(selected_images_dict)
 
-    def get_selected_images(self):
-        return self._images
+    def get_images(self):
+        return self._selected_as_layers
+
+    def get_as_layers(self):
+        return self._selected_as_layers
 
     def get_image_if_single(self):
-        if len(self._images) == 1:
-            return self._images[0]
+        if len(self._selected_as_layers) == 1:
+            return self._selected_as_layers[0]
         else:
             raise ValueError("More than one image selected | Legacy code, will break on purpose")
 
-    # region private methods
-    def _change_dropdown_to_images(self, selected_images_dict: list):
-        self._images = self._names_to_layers(selected_images_dict)
+    def set_selected_to_layers(self, layers):
+        if type(layers) != list:
+            layers = [layers]
 
         self._clear_multi_image_selection()
-        text = f"{len(self._images)} images"
+
+        if type(layers) != list:
+            layers = [layers]
+
+        if len(layers) == 1:
+            self._selected_as_layers = [self._viewer.layers[layers[0].name]]
+        self._selected_as_layers = layers
+
+
+
+    def _on_index_changed(self):
+        text = self.drop_down.currentText()
+        if text != self._multi_image_selection:
+            self._clear_multi_image_selection()
+        self._selected_as_layers = [self._viewer.layers[text]]
+
+    # region private methods
+    def _change_dropdown_to_images(self, selected_images_dict: list):
+        self._selected_as_layers = self._names_to_layers(selected_images_dict)
+
+        self._clear_multi_image_selection()
+        text = f"{len(self._selected_as_layers)} images"
         self.drop_down.addItem(text)
         self.drop_down.setCurrentIndex(self.drop_down.findText(text))
 
@@ -130,7 +157,7 @@ class ImageSelectorDropDown(QWidget):
         else:
             raise ValueError("Invalid argument type, must be str or int | Got {type(args[0])}")
         self.drop_down.setCurrentIndex(index)
-        self._images = args[0]
+        self._selected_as_layers = args[0]
         print(f"Index changed to {index}")
 
 
@@ -138,10 +165,9 @@ class ImageSelectorDropDown(QWidget):
         index = self.drop_down.findText(image_name)
         return index
 
-    def _on_index_changed(self):
-        text = self.drop_down.currentText()
-        if text != self._multi_image_selection:
-            self._clear_multi_image_selection()
+
+
+
     # endregion
 
 
@@ -182,7 +208,7 @@ class ImageSelectionDialog(QDialog):
     def __init__(self, images, parent=None):
         super().__init__(parent)
         self.images = images
-        self.selected_images = []  # Will store selected images on accept.
+        self.selected_images: list[dict] = []
         self._init_ui()
 
     def _init_ui(self):
@@ -199,7 +225,9 @@ class ImageSelectionDialog(QDialog):
         for row, image in enumerate(self.images, start=1):
             checkbox = QCheckBox(self)
             image_label = QLabel(image.name, self)
-            colormap_input = QLineEdit(self)
+
+
+            colormap_input = QLineEditWithColormap(parent = self, colormap_name= image.colormap.name)
             colormap_input.setText(image.colormap.name)
 
             # Order: Checkbox | Image Name | Colormap Input
@@ -228,46 +256,3 @@ class ImageSelectionDialog(QDialog):
     def get_selected_images(self):
         return self.selected_images
 
-def get_colormap_pixmap(colormap_name, width=200, height=20):
-    """
-        Gets a colormap from napari and converts it to a QPixmap.
-    """
-    napari_cmap = napari.utils.colormaps.AVAILABLE_COLORMAPS.get(colormap_name)
-    print(f"Colormap name: {napari_cmap.name}")
-
-    gradient_1d = np.linspace(0, 1, width)
-
-    gradient_2d = np.tile(gradient_1d, (height, 1))
-
-    gradient_rgba = napari_cmap.map(gradient_2d)
-    gradient_rgba_uint8 = (gradient_rgba * 255).astype(np.uint8)
-
-    # Create a QImage from the RGBA array
-    height, width, channels = gradient_rgba.shape
-
-    q_image = QImage(gradient_rgba_uint8, width, height, QImage.Format_RGBA8888)
-    pixmap = QPixmap.fromImage(q_image)
-
-    return pixmap
-
-class QLineEditWithColormap(QLineEdit):
-    def __init__(self, colormap_name, parent=None):
-        super().__init__(parent)
-
-if __name__ == '__main__':
-    import sys
-    from PyQt5.QtWidgets import QApplication, QLabel, QWidget, QVBoxLayout
-    path = "C:/root-files/4 colour PSFOptimal zeiss settings same pinhole size  Full Zstack per track2.czi"
-
-    app = QApplication(sys.argv)
-    test_widget = QWidget()
-    layout = QVBoxLayout(test_widget)
-
-
-    pixmap = get_colormap_pixmap('red')
-    label = QLabel()
-    label.setPixmap(pixmap)
-
-    layout.addWidget(label)
-    test_widget.show()
-    sys.exit(app.exec())
