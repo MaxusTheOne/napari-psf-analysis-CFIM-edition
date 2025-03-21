@@ -51,8 +51,8 @@ class ImageSelectorDropDown(QWidget):
         images = []
         for layer in self._viewer.layers:
             if isinstance(layer, napari.layers.Image):
+                layer.selected = any(layer.name == selected.name for selected in self._selected_as_layers)
                 images.append(layer)
-
         selected_images_dict = []
         dialog = ImageSelectionDialog(parent= self, images = images)
         if dialog.exec() == QDialog.Accepted:
@@ -61,7 +61,7 @@ class ImageSelectorDropDown(QWidget):
 
         if len(selected_images_dict) == 0: return
 
-        elif len(selected_images_dict) == 1: self._change_dropdown_to_image(selected_images_dict[0]["name"])
+        elif len(selected_images_dict) == 1: self._set_dropdown_to_index(selected_images_dict[0]["name"])
 
         elif len(selected_images_dict) <= len(images):
             self._change_dropdown_to_images(selected_images_dict)
@@ -70,7 +70,11 @@ class ImageSelectorDropDown(QWidget):
         return self._selected_as_layers
 
     def get_as_layers(self):
-        return self._selected_as_layers
+        layer_validity = self._check_layers_validity(self._selected_as_layers)
+        if layer_validity:
+            return self._selected_as_layers
+        else:
+            raise ValueError(f"Invalid layers selected | {self._selected_as_layers}")
 
     def get_image_if_single(self):
         if len(self._selected_as_layers) == 1:
@@ -112,6 +116,17 @@ class ImageSelectorDropDown(QWidget):
         self._selected_as_layers = [self._viewer.layers[text]]
 
     # region private methods
+    def _check_layers_validity(self, layers):
+        for layer in layers:
+            exists = False
+            for viewer_layers in self._viewer.layers:
+                if layer == viewer_layers:
+                    exists = True
+                    break
+            if not exists:
+                return False
+        return True
+
     def _change_dropdown_to_images(self, selected_images_dict: list):
         self._selected_as_layers = self._names_to_layers(selected_images_dict)
 
@@ -159,23 +174,26 @@ class ImageSelectorDropDown(QWidget):
 
 
     @overload
-    def _change_dropdown_to_image(self, image_name: str):
+    def _set_dropdown_to_index(self, image_name: str):
         pass
     @overload
-    def _change_dropdown_to_image(self, index: int):
+    def _set_dropdown_to_index(self, index: int):
         pass
 
-    def _change_dropdown_to_image(self, *args): # This overload is a bit silly
+    def _set_dropdown_to_index(self, *args): # This overload is a bit silly
         if type(args[0]) is str:
             image_name = args[0]
             index = self._index_from_name(image_name)
         elif type(args[0]) is int:
             index = args[0]
+            image_name = self.drop_down.itemText(index)
         else:
             raise ValueError("Invalid argument type, must be str or int | Got {type(args[0])}")
         self.drop_down.setCurrentIndex(index)
-        self._selected_as_layers = args[0]
-        print(f"Index changed to {index}")
+        selected_layer = self._viewer.layers[image_name]
+        self._selected_as_layers = selected_layer
+        if not args:
+            print(f"Index changed to {index} | {self._selected_as_layers}")
 
 
     def _index_from_name(self, image_name):
@@ -241,6 +259,8 @@ class ImageSelectionDialog(QDialog):
         self.colormaps = {}
         for row, image in enumerate(self.images, start=1):
             checkbox = QCheckBox(self)
+            checkbox.setChecked(image.selected)
+
             image_label = QLabel(image.name, self)
 
 

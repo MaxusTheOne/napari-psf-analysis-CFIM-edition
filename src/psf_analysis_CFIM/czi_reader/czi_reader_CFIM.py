@@ -53,8 +53,12 @@ def read_czi(path):
     reader = CziReader(path)
     file_name = os.path.basename(path)
     channels = reader.dims.C
+    try:
+        metadata_list = extract_key_metadata(reader, channels)
+    except ValueError as e:
+        show_warning(f"Error extracting metadata | Is this an Airy scan? | {e}")
 
-    metadata_list = extract_key_metadata(reader, channels)
+        metadata_list = [{} for _ in range(channels)]
 
     file_name_trunked = truncate_filename(file_name, 20)
 

@@ -359,7 +359,7 @@ class PsfAnalysis(QWidget):
 
         self.image_selection = ImageSelectorDropDown(parent=basic_settings, viewer=self.viewer)
 
-        layout.addRow(QLabel("Image2", basic_settings),self.image_selection.init_ui())
+        layout.addRow(QLabel("Channels", basic_settings),self.image_selection.init_ui())
 
         self.cbox_img = self.image_selection.drop_down
         self.cbox_point = QComboBox(parent=basic_settings)
@@ -511,8 +511,6 @@ class PsfAnalysis(QWidget):
             print(f"Missing metadata for settings: {e} and possible more")
 
     def _create_bead_finder(self):
-        if self.bead_finder is None:
-            self.find_beads_button.setEnabled(True)
 
         image_layers = self.image_selection.get_as_layers()
         print(f"Image layers len: {len(image_layers)}")
