@@ -1,5 +1,6 @@
 import sys
 from typing import overload, List
+from uuid import UUID
 
 import napari
 import numpy as np
@@ -10,20 +11,120 @@ from PyQt5.QtWidgets import QHBoxLayout, QWidget, QComboBox, QPushButton, QAppli
 
 from psf_analysis_CFIM.library_workarounds.QLineEditWithColormapBg import QLineEditWithColormap
 
+ImageReference = dict["name": str, "unique_id": UUID, "index": int]
+
+class NapariImageLayer(napari.layers.Image):
+    def __init__(self, name: str, *args, **kwargs):
+        if not name:
+            raise ValueError("A name is required for NapariImageLayer.")
+        # Pass additional arguments to the base class __init__
+        super().__init__(*args, **kwargs)
+        self.name = name
+
+
+
 # TODO: Potentially change this to manage access to image layers
-class ImageSelectorDropDown(QWidget):
+class ImageInteractionManager(QWidget):
     def __init__(self, parent=None, viewer=None):
         super().__init__(parent)
         self.drop_down = None
         self.open_images_button = None
 
         self._viewer = viewer
-
         # Too scared of layers changing position in the viewer to use references instead of storing the layers
-        self._selected_as_layers: List[napari.layers.Image] = []
+        self._selected_as_layers: List[NapariImageLayer] = []
         self._multi_image_selection = ""
 
+        self.image_selection_reference: list[ImageReference] = []
+        self._viewer.layers.events.changed.connect(self.update_image_references)
 
+    def update_image_references(self):
+        self.image_selection_reference = []
+        for index, layer in enumerate(self._viewer.layers):
+            if isinstance(layer, napari.layers.Image):
+                self.image_selection_reference.append({"name": layer.name, "unique_id": layer.unique_id, "index": index})
+
+    # image means a napari.layers.Image object
+    @overload
+    def get_image(self, index: int) -> NapariImageLayer:
+        pass
+    @overload
+    def get_image(self, name: str) -> NapariImageLayer:
+        pass
+    def get_image(self, *args):
+        if type(args[0]) is int:
+            index = args[0]
+            return self._viewer.layers[index]
+        elif type(args[0]) is str:
+            name = args[0]
+            return self._viewer.layers[name]
+        else:
+            raise ValueError(f"Invalid argument type, must be str or int | Got {type(args[0])}")
+
+    def get_image_index(self, name: str):
+        for index, image in enumerate(self.image_selection_reference):
+            if image["name"] == name:
+                return index
+        return -1
+
+    @overload
+    def get_images(self) -> List[NapariImageLayer]:
+        ...
+    @overload
+    def get_images(self, indexes: List[int]) -> List[NapariImageLayer]:
+        ...
+
+    @overload
+    def get_images(self, names: List[str]) -> List[NapariImageLayer]:
+        ...
+
+    def get_images(self, *args) -> List[NapariImageLayer]:
+        if not args:
+            return self.get_images_from_selection()
+        if not isinstance(args[0], list):
+            raise ValueError(f"Invalid argument type, must be list | Got {type(args[0]) if args else 'None'}")
+        items = args[0]
+        if not items:
+            return []
+        if isinstance(items[0], str):
+            return [self.get_image(name) for name in items]
+        elif isinstance(items[0], int):
+            return [self.get_image(index) for index in items]
+        else:
+            raise ValueError(f"List items must be int or str | Got {type(items[0])}")
+
+    @overload
+    def get_image_name(self, index: int) -> str:
+        ...
+    @overload
+    def get_image_name(self) -> str:
+        ...
+    def get_image_name(self, *args) -> str:
+        if not args:
+            return self.get_images()[0].name
+        if isinstance(args[0], int):
+            index = args[0]
+            return self.get_images()[index].name
+
+    @overload
+    def get_selected_image_name(self, index: int) -> str:
+        ...
+    @overload
+    def get_selected_image_name(self) -> str:
+        ...
+
+    def get_selected_image_name(self, *args) -> str:
+        if not self._selected_as_layers:
+            return ""
+        if not args:
+            return self._selected_as_layers[0].name
+        if isinstance(args[0], int):
+            if self._selected_as_layers < args[0]:
+                raise ValueError(f"Index out of range | {args[0]}")
+            index = args[0]
+            return self._selected_as_layers[index].name
+
+    # region dropdown methods
     def add_item(self, item):
         self.drop_down.addItem(item)
 
@@ -66,7 +167,7 @@ class ImageSelectorDropDown(QWidget):
         elif len(selected_images_dict) <= len(images):
             self._change_dropdown_to_images(selected_images_dict)
 
-    def get_images(self):
+    def get_images_from_selection(self):
         return self._selected_as_layers
 
     def get_as_layers(self):
@@ -75,6 +176,11 @@ class ImageSelectorDropDown(QWidget):
             return self._selected_as_layers
         else:
             raise ValueError(f"Invalid layers selected | {self._selected_as_layers}")
+
+    def get_image_name(self, index = 0):
+        name = self._selected_as_layers[index].name
+        print(f"get_image_name: {name}") # DEBUG
+        return name
 
     def get_image_if_single(self):
         if len(self._selected_as_layers) == 1:
@@ -88,13 +194,11 @@ class ImageSelectorDropDown(QWidget):
 
         self._clear_multi_image_selection()
 
-        if type(layers) != list:
-            layers = [layers]
-
         if len(layers) == 1:
             text = layers[0].name
             self._selected_as_layers = [self._viewer.layers[text]]
             self.drop_down.setCurrentIndex(self.drop_down.findText(text))
+            return
 
         if len(layers) > 1:
             self._set_multi_image_dropdown(len(layers))
@@ -191,7 +295,7 @@ class ImageSelectorDropDown(QWidget):
             raise ValueError("Invalid argument type, must be str or int | Got {type(args[0])}")
         self.drop_down.setCurrentIndex(index)
         selected_layer = self._viewer.layers[image_name]
-        self._selected_as_layers = selected_layer
+        self._selected_as_layers = [selected_layer]
         if not args:
             print(f"Index changed to {index} | {self._selected_as_layers}")
 
@@ -203,6 +307,7 @@ class ImageSelectorDropDown(QWidget):
 
 
 
+    # endregion
     # endregion
 
 

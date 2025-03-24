@@ -17,8 +17,13 @@ class BeadFinder:
 
         self.yx_border_padding = 2 # TODO: Add to settings
         self.z_border_padding = 0
+
         self.maxima_rel = 0.3
         self.maxima_abs = 0
+
+        self.passed_bead_count = [0, 0, 0]
+        self.discarded_bead_count = [0, 0, 0]
+
 
     """
        A class for finding approximate bead positions in a 3D image stack.
@@ -32,35 +37,35 @@ class BeadFinder:
         
         Returns:
         - A list of dicts, 
-            points: (z, y, x) for found beads, 
-            discarded: (z, y, x) for discarded beads,
+            points: list[tuple(z, y, x) for found beads, 
+            discarded: list[tuple(z, y, x) for discarded beads,
             wavelength: an int, for identifying the channel.
     """
+
     def find_beads(self):
         total_beads = []
         total_discarded_beads = []
+        channels_beads_dicts = []
+
+
         for image_layer in self.images_list:
+            try:
+                wavelength = image_layer.metadata["EmissionWavelength"]
+            except KeyError:
+                wavelength = None
+
             beads, discarded_beads = self.find_beads_for_channel(image_layer.data)
+
             total_beads += beads
             total_discarded_beads += discarded_beads
-        return total_beads, total_discarded_beads
 
+            channel_beads_dict = {
+                "points": beads,
+                "discarded": discarded_beads,
+                "wavelength": wavelength
+            }
 
-
-
-    def find_beads_for_channel(self, channel_image):
-        image = self._max_projection(channel_image)
-        image = self._median_filter(image)
-
-        yx_beads, discarded_xy = self._maxima(image, channel_image)
-        zyx_beads, zyx_discarded_beads = self._find_bead_positions(channel_image, yx_beads)
-        # TODO: OPTIMIZE Use a better algorithm for neighbor distance. This one is O(n^2). VERY SLOW.
-        # TODO: Keep previously discarded beads to check neighbors
-        beads, discarded_beads_by_neighbor_dist = self.filter_beads_by_neighbour_distance(zyx_beads, zyx_discarded_beads)
-        yx_discarded_beads, x = self._find_bead_positions(channel_image, discarded_xy, no_filter=True) # Convert discarded yx beads to zyx
-
-        # Combine discarded beads TODO: Add lines to visualize discarded beads from neighbor distance
-        discarded_beads = zyx_discarded_beads + yx_discarded_beads + discarded_beads_by_neighbor_dist
+            channels_beads_dicts.append(channel_beads_dict)
 
         if self._debug: # It was really important to color code the output, trust me...
             green = '\033[92m'
@@ -68,10 +73,27 @@ class BeadFinder:
             endc = '\033[0m'
 
             print(
-                f"Beads {green}passed{endc} / {yellow}discarded{endc} \nxy border: {green}{len(yx_beads)}{endc} / {yellow}{len(discarded_xy)}{endc} "
-                f"| z border: {green}{len(zyx_beads)}{endc} / {yellow}{len(zyx_discarded_beads)}{endc} | neighbor dist: {green}{len(beads)}{endc} / {yellow}{len(discarded_beads_by_neighbor_dist)}{endc}")
-            print(f"Total: {green}{len(beads)}{endc} / {yellow}{len(discarded_beads)}{endc}")
+                f"Beads {green}passed{endc} / {yellow}discarded{endc} of {len(self.images_list)} color channel{"s" if len(self.images_list) > 1 else ""} \nxy border: {green}{self.passed_bead_count[0]}{endc} / {yellow}{self.discarded_bead_count[0]}{endc} "
+                f"| z border: {green}{self.passed_bead_count[1]}{endc} / {yellow}{self.discarded_bead_count[1]}{endc} | neighbor dist: {green}{self.passed_bead_count[2]}{endc} / {yellow}{self.discarded_bead_count[2]}{endc}")
+            print(f"Total: {green}{len(total_beads)}{endc} / {yellow}{len(total_discarded_beads)}{endc}")
+        return channels_beads_dicts
 
+    def find_beads_for_channel(self, channel_image):
+        median_image = self._median_filter(self._max_projection(channel_image))
+
+        yx_beads, discarded_xy = self._maxima(median_image, channel_image)
+        zyx_beads, zyx_discarded_beads = self._find_bead_positions(channel_image, yx_beads)
+
+        beads, discarded_beads_by_neighbor_dist = self.filter_beads_by_neighbour_distance(zyx_beads, zyx_discarded_beads)
+        yx_discarded_beads, x = self._find_bead_positions(channel_image, discarded_xy, no_filter=True) # Convert discarded yx beads to zyx
+
+        # Combine discarded beads TODO: Add lines to visualize discarded beads from neighbor distance
+
+        if self._debug:
+            self.passed_bead_count = [len(zyx_beads), len(yx_beads), len(beads)]
+            self.discarded_bead_count = [len(discarded_xy), len(zyx_discarded_beads), len(discarded_beads_by_neighbor_dist)]
+
+        discarded_beads = zyx_discarded_beads + yx_discarded_beads + discarded_beads_by_neighbor_dist
         return beads, discarded_beads
 
     def get_image(self):

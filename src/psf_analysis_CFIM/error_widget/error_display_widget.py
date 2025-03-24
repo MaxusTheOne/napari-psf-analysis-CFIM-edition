@@ -45,13 +45,13 @@ def report_error_box(corner, shape):
 def report_error(message="", point=()):
     error_emitter.errorOccurred.emit(message, point)
 
-def report_warning(message="", point=()):
-    error_emitter.warningOccurred.emit(message, point)
+def report_warning(message="", points=[]):
+    error_emitter.warningOccurred.emit(message, points)
 
 class ErrorEmitter(QObject):
     errorOccurred = Signal(str, tuple)
     errorOccurredBox = Signal(tuple, tuple)
-    warningOccurred = Signal(str, tuple)
+    warningOccurred = Signal(str, list)
 
 
 error_emitter = ErrorEmitter()
@@ -112,15 +112,23 @@ class ErrorDisplayWidget(QWidget):
 
     def add_warning_point(self, coordinate):
         """
-        Add a new point to the warning points layer.
-        Expected coordinate is a 3D tuple (z, x, y).
+            Add a new point to the warning points layer.
+            Expected coordinate is a 3D tuple (z, x, y).
+            But supports 1D and 2D coordinates as well.
         """
         self.warning_points_layer = self._init_warning_points_layer()
         coordinate = upscale_to_3d(coordinate)
+        self.warning_points_layer.add(coordinate)
 
-        data = self.warning_points_layer.data.tolist() if self.warning_points_layer.data.size else []
-        data.append(coordinate)
-        self.warning_points_layer.data = np.array(data)
+    def add_warning_points(self, coordinates):
+        """
+            Add multiple points to the warning points layer.
+            Expected coordinates are a list of 3D tuples (z, x, y).
+            No support for 1D or 2D coordinates >:(
+        """
+        self.warning_points_layer = self._init_warning_points_layer()
+
+        self.warning_points_layer.add(coordinates)
 
     def _init_ui(self):
         layout = QVBoxLayout(self)
@@ -138,7 +146,7 @@ class ErrorDisplayWidget(QWidget):
             return self._viewer.layers[layer_name]
         else:
             return self._viewer.add_points(np.empty((0, 3)), name=layer_name, face_color='red', scale=self._scale,
-                                           size=7)
+                                           size=6)
 
     def _init_warning_points_layer(self):
         layer_name = "Filtered beads"
@@ -146,7 +154,7 @@ class ErrorDisplayWidget(QWidget):
             return self._viewer.layers[layer_name]
         else:
             return self._viewer.add_points(np.empty((0, 3)), name=layer_name, face_color='yellow', scale=self._scale,
-                                           size=6)
+                                           size=5, opacity=0.5, visible=False)
 
     def _on_error_event(self, string: str, point: tuple):
         """Add an error message to the display."""
@@ -157,13 +165,13 @@ class ErrorDisplayWidget(QWidget):
 
 
 
-    def _on_warning_event(self, string: str, point: tuple):
+    def _on_warning_event(self, string: str, points: list[tuple]):
         """Add a warning message to the display."""
 
         if string != "":
             self.add_warning(string)
-        if point:
-            self.add_warning_point(point)
+        if points:
+            self.add_warning_points(points)
 
 
 

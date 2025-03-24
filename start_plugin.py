@@ -1,6 +1,10 @@
 import json
+import logging
 import os
+import random
 import subprocess
+import warnings
+
 import napari
 import argparse
 import faulthandler
@@ -20,8 +24,6 @@ def install_plugin():
 
 def load_czi_file(viewer, czi_file):
     """Load a .czi file into the Napari viewer."""
-    print(f"Loading .czi file: {czi_file}")
-
     viewer.open(czi_file, plugin="psf-analysis-CFIM")
 
 def launch_napari():
@@ -32,6 +34,10 @@ def launch_napari():
     except FileNotFoundError:
         print("Napari is not installed. Please install it by running 'pip install napari[all]'")
         exit(1)
+class DeprecationErrorHandler(logging.Handler):
+    def emit(self, record):
+        if "Calling the getitem method from a UnitRegistry is deprecated" in record.getMessage():
+            raise DeprecationWarning(record.getMessage())
 
 
 # TODO: Create a github actions script for deployment
@@ -49,6 +55,8 @@ def launch_napari_dev_mode(czi_file=None, points=None):
             - Works fine when opened with the console button.
     """
     print("Launching Napari in dev mode...")
+    # logger = logging.getLogger("pint.util")
+    # logger.addHandler(DeprecationErrorHandler())
 
     # Signal debug mode
     os.environ["PSF_ANALYSIS_CFIM_DEBUG"] = "1"
@@ -56,7 +64,6 @@ def launch_napari_dev_mode(czi_file=None, points=None):
 
     viewer = napari.Viewer(ndisplay=3, show= False)
     from psf_analysis_CFIM.debug.debug import DebugClass # Causes crash if imported before napari.Viewer() | Due to qt event loop
-
 
     if is_debug:
         debug = DebugClass(viewer)
@@ -93,7 +100,8 @@ def launch_napari_dev_mode(czi_file=None, points=None):
 
         viewer.events.connect(on_status_change)
 
-    viewer.show()
+    # napari.qt.Window(viewer).activate()
+    viewer.window.show()
     napari.run()
 
 
@@ -108,11 +116,22 @@ if __name__ == "__main__":
         "--czi", type=str, help="Path to a .czi file to load into Napari."
     )
     parser.add_argument(
+        "--folder", type=str, help="Path to a folder containing .czi files, to load a random file in. takes precedence over --czi."
+    )
+    parser.add_argument(
         "--points", type=str, help="Points coordinates in JSON format: \"[[z,y,x],[z,y,x]]\"."
     )
 
     args = parser.parse_args()
 
+    if args.folder:
+        files = [file for file in os.listdir(args.folder) if file.lower().endswith('.czi')]
+        if not files:
+            print(f"No .czi files found in folder: {args.folder}")
+            exit(1)
+        random_file = os.path.join(args.folder, random.choice(files))
+        print(f"Randomly selected .czi file: {random_file}")
+        args.czi = random_file
 
     # Launch the appropriate mode
     if args.dev:

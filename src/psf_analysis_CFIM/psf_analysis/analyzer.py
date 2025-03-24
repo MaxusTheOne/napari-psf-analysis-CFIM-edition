@@ -24,6 +24,7 @@ class Analyzer:
             ),
             patch_size=parameters.patch_size,
         )
+        self._bead_margins = bead_extractor._margins
         self._wavelength_color = settings["wavelength_color"]
         self._invalid_beads_index = []
         self._beads = bead_extractor.extract_beads(points=self._parameters.point_data)
@@ -48,6 +49,8 @@ class Analyzer:
         if self._index < len(self._beads):
             bead = self._beads[self._index]
             try:
+                if bead.data.shape != (int(self._bead_margins[0]), int(self._bead_margins[1]), int(self._bead_margins[2])):
+                    raise InvalidShapeError(f"Discarding bead with invalid shape: {bead.data.shape}")
                 if 0 in bead.data.shape:
                     raise InvalidShapeError(f"Discarding bead with invalid shape: {bead.data.shape}")
                 psf = PSF(image=bead)
@@ -104,7 +107,7 @@ class Analyzer:
             averaged_bead = Calibrated3DImage(data=averaged_bead_data, spacing=self._parameters.spacing)
             return averaged_bead
         except (ValueError, AttributeError) as e:
-            print(f"Error getting average bead: {e}")
+            print(f"Error getting average bead of {len(filtered_beads)} beads: {e}")
             if self._debug:
                 report_error_debug(filtered_beads, "3d_array")
 

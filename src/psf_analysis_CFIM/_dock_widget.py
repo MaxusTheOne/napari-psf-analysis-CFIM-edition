@@ -38,9 +38,10 @@ from psf_analysis_CFIM.config.settings_widget import SettingsWidget
 from psf_analysis_CFIM.debug import global_vars
 from psf_analysis_CFIM.debug.debug import report_error_debug
 from psf_analysis_CFIM.error_widget.error_display_widget import ErrorDisplayWidget, report_error, report_warning
-from psf_analysis_CFIM.image_selector_dropdown import ImageSelectorDropDown
+from psf_analysis_CFIM.image_selector_dropdown import ImageInteractionManager
 from psf_analysis_CFIM.library_workarounds.RangeDict import RangeDict
 from psf_analysis_CFIM.mounting_medium_selector import MountingMediumSelector
+from psf_analysis_CFIM.points_dropdown import PointsDropdown
 from psf_analysis_CFIM.psf_analysis.analyzer import Analyzer
 from psf_analysis_CFIM.psf_analysis.image_analysis import analyze_image, filter_psf_beads_by_box
 from psf_analysis_CFIM.psf_analysis.parameters import PSFAnalysisInputs
@@ -102,6 +103,7 @@ class PsfAnalysis(QWidget):
         super().__init__(parent=parent)
         self.viewer: viewer = napari_viewer
 
+
         # Event listeners
         napari_viewer.layers.events.inserted.connect(self._layer_inserted)
         napari_viewer.layers.events.removed.connect(self._layer_removed)
@@ -152,6 +154,7 @@ class PsfAnalysis(QWidget):
         # setup after UI
         self.use_config()
         if os.getenv("PSF_ANALYSIS_CFIM_DEBUG") == "1":
+            print(f"Main widget | Debug")
             self._debug = True
             debug = global_vars.debug_instance
             debug.set_PSFAnalysis_instance(self)
@@ -211,17 +214,48 @@ class PsfAnalysis(QWidget):
         report_error("Test Error",(20,20,20))
 
     def _find_beads(self):
+
+        # Estimates points for the user.
         self._create_bead_finder()
+        channels_dict_list = self.bead_finder.find_beads()
 
-        scale= self.bead_finder.get_scale()
+        # Displays the points in the viewer with a name like "xxλ | Estimated Beads"
+        self._estimated_beads_to_viewer(channels_dict_list)
 
-        beads, discarded_beads = self.bead_finder.find_beads()
+        # Sets the point dropdown to the estimated beads
+        self.point_dropdown.set_multi_selection_by_wavelength([channel["wavelength"] for channel in channels_dict_list])
 
-        self._point_list_to_viewer(beads, scale, "Found Beads", size=4)
+
+        for channel in channels_dict_list:
+            report_warning("", points = channel["discarded"])
+
+    def _estimated_beads_to_viewer(self, estimated_beads: list[dict]):
+        scale = self.bead_finder.get_scale()
+        base_name = "Estimated Beads"
+        points = [beads_dict["points"] for beads_dict in estimated_beads]
+        wavelength = [beads_dict["wavelength"] for beads_dict in estimated_beads]
+        bead_colors = []
+
+        layer_amount = len(estimated_beads)
+        for layer in self.viewer.layers:
+            if not isinstance(layer, napari.layers.Image):
+                if base_name in layer.name:
+                    self.viewer.layers.remove(layer)
+                continue
+            for w  in wavelength:
+                if w in layer.name:
+                    bead_colors.append(layer.colormap.name)
+                    break
+
+        for key in [points, wavelength, bead_colors]:
+            if len(key) != layer_amount:
+                raise ValueError(f"Missing key: {key} had len: {len(key)} | expected: {layer_amount}")
 
 
-        for bead in discarded_beads:
-            report_warning("", point=(bead[0], bead[1], bead[2]))
+        for i in range(layer_amount):
+            self.viewer.add_points(points[i], scale=scale, face_color=bead_colors[i], border_color="cyan",
+                                   name=f"{wavelength[i]}λ | {base_name}", size=4, opacity=0.7)
+
 
 
 
@@ -357,17 +391,16 @@ class PsfAnalysis(QWidget):
         layout = QFormLayout(basic_settings)
         basic_settings.setLayout(layout)
 
-        self.image_selection = ImageSelectorDropDown(parent=basic_settings, viewer=self.viewer)
-
+        self.image_selection = ImageInteractionManager(parent=basic_settings, viewer=self.viewer)
         layout.addRow(QLabel("Channels", basic_settings),self.image_selection.init_ui())
+        self.cbox_img = self.image_selection.drop_down # Exposing this as a "legacy" fix
 
-        self.cbox_img = self.image_selection.drop_down
-        self.cbox_point = QComboBox(parent=basic_settings)
-        self.cbox_point.setToolTip(
+        self.point_dropdown = PointsDropdown(parent=basic_settings)
+        self.point_dropdown.setToolTip(
             "Points layer indicating which PSFs should " "be measured."
         )
         layout.addRow(
-            QLabel("Points", basic_settings), self.cbox_point
+            QLabel("Points", basic_settings), self.point_dropdown
         )
         self.date = QDateEdit(datetime.today())
         self.date.setToolTip("Acquisition date of the PSFs.")
@@ -468,7 +501,7 @@ class PsfAnalysis(QWidget):
                 self.cbox_img.addItem(str(layer))
                 self._img_selection_changed()
             elif isinstance(layer, napari.layers.Points):
-                self.cbox_point.addItem(str(layer))
+                self.point_dropdown.addItem(str(layer))
 
     def _img_selection_changed(self):
         if self.current_img_index != self.cbox_img.currentIndex():
@@ -523,7 +556,7 @@ class PsfAnalysis(QWidget):
         if isinstance(event.value, napari.layers.Image):
             self.cbox_img.insertItem(self.cbox_img.count() + 1, str(event.value))
         elif isinstance(event.value, napari.layers.Points):
-            self.cbox_point.insertItem(self.cbox_point.count() + 1, str(event.value))
+            self.point_dropdown.insertItem(self.point_dropdown.count() + 1, str(event.value))
 
     def _layer_removed(self, event):
         if isinstance(event.value, napari.layers.Image):
@@ -534,9 +567,9 @@ class PsfAnalysis(QWidget):
             self._img_selection_changed()
         elif isinstance(event.value, napari.layers.Points):
             items = [
-                self.cbox_point.itemText(i) for i in range(self.cbox_point.count())
+                self.point_dropdown.itemText(i) for i in range(self.point_dropdown.count())
             ]
-            self.cbox_point.removeItem(items.index(str(event.value)))
+            self.point_dropdown.removeItem(items.index(str(event.value)))
 
     def _on_selection(self, event):
         if self.viewer.layers.selection.active is not None:
@@ -548,16 +581,16 @@ class PsfAnalysis(QWidget):
         self.cancel_extraction = True
         self.cancel.setText("Cancelling...")
 
-    def prepare_measure(self):
-        img_data = self._get_current_img_data()
+    def prepare_measure(self): # Time to refactor this; Support for color channels; and use imageManager
+        img_data = self.image_selection.get_images()[0].data
         if img_data is None:
             return
 
-
-        point_data = self._get_point_data()
+        point_data = self._get_point_data()[0]
         if point_data is None:
             return
 
+        print(f"Point data: {len(point_data)} points | Img shape: {img_data.shape}")
         self._setup_progressbar(point_data)
 
         analyzer_settings = {
@@ -570,7 +603,7 @@ class PsfAnalysis(QWidget):
             na=self.na.value(),
             spacing=self._get_spacing(),
             patch_size=self._get_patch_size(),
-            name=self._get_img_name(),
+            name=self.image_selection.get_image_name(),
             img_data=img_data,
             point_data=point_data,
             dpi=int(self.summary_figure_dpi.currentText()),
@@ -590,8 +623,8 @@ class PsfAnalysis(QWidget):
 
                 bead_img_stack = analyzer.get_raw_beads_filtered()
 
-                filtered_figs = filter_psf_beads_by_box(self.results, measurement_stack, (self.psf_z_box_size.value(), self.psf_yx_box_size.value(), self.psf_yx_box_size.value()))
-                print(f"Theoretical filtered list len: {len(filtered_figs)}")
+                # filtered_figs = filter_psf_beads_by_box(self.results, measurement_stack, (self.psf_z_box_size.value(), self.psf_yx_box_size.value(), self.psf_yx_box_size.value()))
+                # print(f"Theoretical filtered list len: {len(filtered_figs)}")
 
                 # Creates an image of the average bead, runs the PSF analysis on it and creates summary image.
                 averaged_bead = analyzer.get_averaged_bead()
@@ -657,9 +690,9 @@ class PsfAnalysis(QWidget):
 
             self.results = analyzer.get_results()
             measurement_stack, measurement_scale = analyzer.get_summary_figure_stack(
-                bead_img_scale=self.viewer.layers[self.cbox_img.currentText()].scale,
+                bead_img_scale=self.get_scale(),
                 bead_img_shape=self.viewer.layers[
-                    self.cbox_img.currentText()
+                    self.image_selection.get_image_name()
                 ].data.shape,
             )
             if measurement_stack is not None:
@@ -701,8 +734,8 @@ class PsfAnalysis(QWidget):
             widget_settings = {**self.settings_Widget.settings["image_analysis_settings"], **{
                 "RI_mounting_medium": self.mounting_medium.value(), "Emission": self.emission.value(),
                 "NA": self.na.value()}}
-            expected_z_spacing = analyze_image(self._get_current_img_layer(), self.error_widget,
-                          widget_settings=widget_settings)
+            expected_z_spacing = analyze_image(self._get_current_img_layers()[0], self.error_widget,
+                                               widget_settings=widget_settings)
             self.psf_z_box_size.setValue(int(expected_z_spacing) * 3)
 
         except Exception as e:
@@ -716,6 +749,7 @@ class PsfAnalysis(QWidget):
         self.progressbar.setValue(0)
 
     def _get_img_name(self):
+        return "Image" # DEBUG: This is a placeholder
         img_layer = None
         for layer in self.viewer.layers:
             if str(layer) == self.cbox_img.currentText():
@@ -727,48 +761,51 @@ class PsfAnalysis(QWidget):
             return basename(img_layer.source.path)
 
     def _get_point_data(self):
-        point_layer = None
+        point_names = self.point_dropdown.get_selected()
+        point_layers = []
+        print(f"Point names: {point_names}")
         for layer in self.viewer.layers:
-            if str(layer) == self.cbox_point.currentText():
-                point_layer = layer
-        if point_layer is None:
+            if str(layer) in point_names:
+                point_layers.append(layer.data)
+        if point_layers is None:
             show_info(
                 "Please add a point-layer and annotate the beads you "
                 "want to analyze."
             )
             return None
         else:
-            return point_layer.data.copy()
+            return point_layers
 
-    def _get_current_img_layer(self):
-        img_layer = None
-        for layer in self.viewer.layers:
-            if str(layer) == self.cbox_img.currentText():
-                img_layer = layer
-        return img_layer
+    def _get_current_img_layers(self):
+        img_layers = self.image_selection.get_as_layers()
+        return img_layers
 
     def _get_current_img_data(self):
 
-        img_layer = self._get_current_img_layer()
+        img_layers = self._get_current_img_layers()
 
-        if img_layer is None:
+        if img_layers is None or len(img_layers) == 0:
             show_info("Please add an image and select it.")
             return None
 
-        if len(img_layer.data.shape) != 3:
-            raise NotImplementedError(
-                f"Only 3 dimensional data is "
-                f"supported. Your data has {img_layer.data.shape} dimensions."
-            )
+        image_data_list = []
+        for layer in img_layers:
+            if len(layer.data.shape) != 3:
+                raise NotImplementedError(
+                    f"Only 3 dimensional data is "
+                    f"supported. Your data has {layer.data.shape} dimensions."
+                )
 
-        from bfio.bfio import BioReader
+            from bfio.bfio import BioReader
 
-        if isinstance(img_layer.data, BioReader):
-            img_data = np.transpose(img_layer.data.br.read(), [2, 0, 1]).copy()
-        else:
-            img_data = img_layer.data.copy()
+            if isinstance(layer.data, BioReader):
+                img_data = np.transpose(layer.data.br.read(), [2, 0, 1]).copy()
+            else:
+                img_data = layer.data.copy()
 
-        return img_data
+            image_data_list.append(img_data)
+
+        return image_data_list
     
     def _get_patch_size(self):
         return (
@@ -793,7 +830,7 @@ class PsfAnalysis(QWidget):
         return microscope
 
     def get_current_points_layer(self):
-        return self.viewer.layers[self.cbox_point.currentText()]
+        return self.viewer.layers[self.point_dropdown.currentText()]
 
     def get_current_img_layer(self):
 

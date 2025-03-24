@@ -56,7 +56,7 @@ def read_czi(path):
     try:
         metadata_list = extract_key_metadata(reader, channels)
     except ValueError as e:
-        show_warning(f"Error extracting metadata | Is this an Airy scan? | {e}")
+        show_warning(f"Error extracting metadata from .czi | Is this an Airy scan? | {e}")
 
         metadata_list = [{} for _ in range(channels)]
 
@@ -69,8 +69,12 @@ def read_czi(path):
 
         metadata = metadata_list[channel]
 
+
         if channels > 1:
-            metadata["name"] = f"{metadata["metadata"]["EmissionWavelength"]}λ | {file_name_trunked}"
+            try:
+                metadata["name"] = f"{metadata["metadata"]["EmissionWavelength"]}λ | {file_name_trunked}"
+            except KeyError:
+                metadata["name"] = f"Channel {channel} | {file_name_trunked}"
 
         if not isinstance(metadata, dict): # Holy shit, I'm making errors
             raise ValueError(f"Metadata for channel {channel} is not a dictionary. Got {type(metadata)}")
