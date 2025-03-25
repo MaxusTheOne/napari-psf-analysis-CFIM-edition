@@ -4,13 +4,14 @@ import warnings
 from datetime import datetime
 from importlib.metadata import version
 from os.path import basename, dirname, exists, getctime, join
+from typing import overload, Tuple
 
 import napari.layers
 import numpy as np
 import yaml
 from qtpy.QtWidgets import QLayout
 from napari import viewer
-from napari._qt.qthreading import FunctionWorker, thread_worker
+from napari._qt.qthreading import FunctionWorker, thread_worker, GeneratorWorker
 from napari.settings import get_settings
 from napari.utils.notifications import show_info, show_warning
 from qtpy.QtWidgets import (
@@ -233,8 +234,8 @@ class PsfAnalysis(QWidget):
         scale = self.bead_finder.get_scale()
         base_name = "Estimated Beads"
         points = [beads_dict["points"] for beads_dict in estimated_beads]
-        wavelength = [beads_dict["wavelength"] for beads_dict in estimated_beads]
-        bead_colors = []
+        wavelengths = [beads_dict["wavelength"] for beads_dict in estimated_beads]
+        bead_colors = [self.image_selection.get_color_by_wavelength(wavelength) for wavelength in wavelengths]
 
         layer_amount = len(estimated_beads)
         for layer in self.viewer.layers:
@@ -242,19 +243,16 @@ class PsfAnalysis(QWidget):
                 if base_name in layer.name:
                     self.viewer.layers.remove(layer)
                 continue
-            for w  in wavelength:
-                if w in layer.name:
-                    bead_colors.append(layer.colormap.name)
-                    break
 
-        for key in [points, wavelength, bead_colors]:
-            if len(key) != layer_amount:
-                raise ValueError(f"Missing key: {key} had len: {len(key)} | expected: {layer_amount}")
+        keys = {"points": points, "wavelength": wavelengths, "bead_colors": bead_colors}
+        for key_name, key_value in keys.items():
+            if len(key_value) != layer_amount:
+                raise ValueError(f"Missing key: {key_name} had len: {len(key_value)} | expected: {layer_amount}")
 
 
         for i in range(layer_amount):
             self.viewer.add_points(points[i], scale=scale, face_color=bead_colors[i], border_color="cyan",
-                                   name=f"{wavelength[i]}λ | {base_name}", size=4, opacity=0.7)
+                                   name=f"{wavelengths[i]}λ | {base_name}", size=4, opacity=0.7)
 
 
 
@@ -612,6 +610,7 @@ class PsfAnalysis(QWidget):
             ),
             settings=analyzer_settings
         )
+        print(f"Analyzer settings: {analyzer._parameters}")
 
         # Note: Why is it called measurement_stack? It's a stack of summary images.
         def _on_done(result):
@@ -683,7 +682,7 @@ class PsfAnalysis(QWidget):
                 self.extract_psfs.setEnabled(True)
                 self.progressbar.reset()
 
-        @thread_worker(progress={"total": len(point_data)})
+        @thread_worker(progress={"total": len(point_data)}, worker_class=GeneratorWorker)
         def measure():
 
             yield from analyzer
@@ -698,7 +697,7 @@ class PsfAnalysis(QWidget):
             if measurement_stack is not None:
                 return measurement_stack, measurement_scale
 
-        worker: FunctionWorker = measure()
+        worker: GeneratorWorker = measure()
 
         worker.yielded.connect(_update_progress)
         worker.returned.connect(_on_done)
@@ -807,13 +806,24 @@ class PsfAnalysis(QWidget):
             image_data_list.append(img_data)
 
         return image_data_list
-    
-    def _get_patch_size(self):
-        return (
-            (self.psf_z_box_size.value()),
-            (self.psf_yx_box_size.value()),
-            (self.psf_yx_box_size.value()),
-        )
+
+    @overload
+    def _get_patch_size(self) -> Tuple[float, float, float]:
+        ...
+    @overload
+    def _get_patch_size(self, index: int) -> Tuple[float, float, float]:
+        ...
+    def _get_patch_size(self, index: int = -1) -> Tuple[float, float, float]:
+        if index > -1:
+            metadata = self.image_selection.get_metadata(index)
+            z_box = _calculate_expected_z_spacing(emission= metadata["EmissionWavelength"],numerical_aperture= metadata["NA"],refractive_index = metadata["RI_mounting_medium"])
+            return z_box * 3, self.psf_yx_box_size.value(), self.psf_yx_box_size.value()
+        else:
+            return (
+                (self.psf_z_box_size.value()),
+                (self.psf_yx_box_size.value()),
+                (self.psf_yx_box_size.value()),
+            )
 
     def _get_spacing(self):
         spacing = (
@@ -964,3 +974,9 @@ class PsfAnalysis(QWidget):
         self.report_widget.create_pdf(path=self.settings_Widget.settings["output_folder"])
         show_info("Saved results.")
 
+def _calculate_expected_z_spacing(emission, refractive_index, numerical_aperture):
+    """
+        Calculates the expected z-spacing for the PSF analysis using belov formula.
+        # Formula: (2 * RI * λ) / NA^2 = expected_bead_z_size (in nm)
+    """
+    return (2 * refractive_index * emission) / (numerical_aperture ** 2)

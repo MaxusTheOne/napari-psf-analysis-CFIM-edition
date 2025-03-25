@@ -32,8 +32,8 @@ class TestImageInteractionManager(unittest.TestCase):
     def test_update_image_references(self):
         self.manager.update_image_references()
         # Check that image_selection_reference has been populated for each image.
-        self.assertEqual(len(self.manager.image_selection_reference), 3)
-        ref = self.manager.image_selection_reference[0]
+        self.assertEqual(len(self.manager.image_layers_reference), 3)
+        ref = self.manager.image_layers_reference[0]
         self.assertIn("name", ref)
         self.assertIn("unique_id", ref)
         self.assertIn("index", ref)

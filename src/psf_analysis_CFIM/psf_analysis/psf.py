@@ -592,24 +592,25 @@ class PSFRenderEngine:
         )
 
     def _configure_ticks_and_bounds(self):
+        labels_list = [-1000, -500, 0, 500, 1000]
         self._ax_3d.set_box_aspect((1.0, 1.0, 4.0 / 3.0))
-        self._ax_3d.set_xticks([-1000, 0, 1000])
+        self._ax_3d.set_xticks(labels_list)
         self._ax_3d.set_xticklabels(
-            [-1000, 0, 1000], verticalalignment="bottom", horizontalalignment="right"
+            labels_list, verticalalignment="bottom", horizontalalignment="right"
         )
-        self._ax_3d.set_yticks([-1000, 0, 1000])
+        self._ax_3d.set_yticks(labels_list)
         self._ax_3d.set_yticklabels(
-            [-1000, 0, 1000], verticalalignment="bottom", horizontalalignment="left"
+            labels_list, verticalalignment="bottom", horizontalalignment="left"
         )
-        self._ax_3d.set_zticks([-2000, -1000, 0, 1000, 2000])
+        self._ax_3d.set_zticks(labels_list)
         self._ax_3d.set_zticklabels(
-            [-2000, -1000, 0, 1000, 2000],
+            labels_list,
             verticalalignment="top",
             horizontalalignment="left",
         )
-        self._ax_3d.set_xlim(-1500, 1500)
-        self._ax_3d.set_ylim(-1500, 1500)
-        self._ax_3d.set_zlim(-2000, 2000)
+        self._ax_3d.set_xlim(-1000, 1000)
+        self._ax_3d.set_ylim(-1000, 1000)
+        self._ax_3d.set_zlim(-1200, 1200)
 
     def _add_principal_components_annotons(self,centroid):
 
@@ -692,7 +693,7 @@ class PSF:
             print(f"Runtime error fitting point: {self.image.get_corner_coordinates()}")
             self.error = True
         except (TypeError, ValidationError) as e:
-            print(f"Type error fitting point: {self.image.get_corner_coordinates()}")
+            print(f"Type error fitting point: {self.image.get_corner_coordinates()} | error: {e}")
             self.error = True
         else:
             self.psf_record = PSFRecord(

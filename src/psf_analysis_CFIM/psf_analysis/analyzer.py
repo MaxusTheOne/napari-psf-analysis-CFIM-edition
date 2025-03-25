@@ -29,6 +29,8 @@ class Analyzer:
         self._invalid_beads_index = []
         self._beads = bead_extractor.extract_beads(points=self._parameters.point_data)
 
+
+        self._extractor_points_diff = len(self._parameters.point_data) - len(self._beads)
         self._results = None
         self._result_figures = {}
         self._index = 0
@@ -73,8 +75,9 @@ class Analyzer:
                 self._invalid_beads_index.append(self._index)
                 # min_cord, max_cord = bead.get_box()
                 report_error("", bead.get_middle_coordinates())
+
             self._index += 1
-            return self._index + (len(self._parameters.point_data) - len(self._beads))
+            return self._index + self._extractor_points_diff
         else:
             raise StopIteration()
 

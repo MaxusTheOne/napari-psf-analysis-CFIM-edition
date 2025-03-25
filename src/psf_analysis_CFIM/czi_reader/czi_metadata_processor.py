@@ -163,7 +163,7 @@ def extract_key_metadata(reader, channels):
             if len(data) == 1:
                 channel_metadata[key] = [data[0].text for _ in range(channels)]
                 continue
-            elif len(data) != channels:
+            elif len(data) < channels:
                 raise ValueError(f"Expected {channels} values for {key}, got {len(data)}")
                 # This is mostly to filter out the weird Airy scans.
 

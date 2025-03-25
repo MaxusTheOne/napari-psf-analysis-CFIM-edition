@@ -31,7 +31,6 @@ class BeadFinder:
         Parameters:
         - images_list: A list of napari image layers. 
             Multiple layers are assumed to be different channels / wavelengths.
-            Single layers don't get a wavelength assigned.
         - scale: A tuple of 3 floats representing the pixel size for display in napari.
         - bounding_box: tuple[int, int, int] -> represent the psf box in nm.
         
