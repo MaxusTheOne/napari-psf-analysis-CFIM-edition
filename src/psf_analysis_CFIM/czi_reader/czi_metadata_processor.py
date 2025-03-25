@@ -30,7 +30,7 @@ def find_in_xml_tree(xml_tree, tag):
     elements = xml_tree.findall(f".//{tag}")
     return elements
 
-
+# region Wavelength and color
 wavelength_to_color = RangeDict(
             [(380, 450, "Violet"),
              (450, 485, "Blue"),
@@ -64,28 +64,48 @@ def generate_gamma_dict():
 
 wavelength_luminous_dict = {'red': 0.3, 'orange': 0.7, 'yellow': 0.9, 'green': 0.4, 'cyan': 0.3, 'blue': 0.2, 'violet': 0.1}
 
-def compute_napari_gamma(V, V_max, gamma_default=1.0, correction_weight=0.05):
+def compute_napari_gamma(color_name_list, gamma_default=1.0, correction_weight=0.05):
     """
-    Compute a napari gamma value for a channel.
+    Computes a napari gamma dict.
+
+    Napari gamma is defined in the range 0 - 2, with 0 being the brightest and 2 the darkest.
+    This function uses a luminous efficiency dictionary (wavelength_luminous_dict) and treats the channel with
+    the highest luminous value as the reference (its gamma will be gamma_default).
 
     Parameters:
-      V: Sensitivity for the channel.
-      V_max: Maximum sensitivity among channels (reference).
-      gamma_default: Gamma value for the reference channel.
-      correction_weight: Strength of the correction.
-          Lower values make the channels' gamma values closer to each other.
+      color_name_list: list of color names (e.g., ["red", "green", "blue"]).
+      gamma_default: Gamma value for the reference channel (default brightness setting).
+      correction_weight: Scaling factor for how strongly to adjust other channels.
+         Lower values bring the gamma values closer together.
 
     Returns:
-      A gamma value in the range [0, 2], where lower means brighter.
+      A dictionary mapping each color in color_name_list to its computed gamma.
     """
-    # Compute the ratio: for the channel with maximum sensitivity, ratio = 1.
-    ratio = V_max / V
-    # We want the reference channel (ratio==1) to have gamma_default.
-    # For channels with lower sensitivity (ratio > 1), we subtract a scaled difference.
-    gamma = gamma_default - correction_weight * (ratio - 1)
-    # Ensure gamma stays within napari's allowed range.
-    return max(0, min(gamma, 2))
+    napari_gamma_dict = {}
+    max_color = max(wavelength_luminous_dict, key=wavelength_luminous_dict.get)
+    max_luminous = wavelength_luminous_dict[max_color]
 
+    for color in color_name_list:
+        try:
+            # Get luminous efficiency for the current channel.
+            current_luminous = wavelength_luminous_dict[color.lower()]
+            # Avoid division by zero.
+            if current_luminous == 0:
+                ratio = 1.0
+            else:
+                ratio = max_luminous / current_luminous
+            # For the channel with the maximum luminous value, ratio = 1, so gamma remains gamma_default.
+            gamma = gamma_default - correction_weight * (ratio - 1)
+        except KeyError:
+            warnings.warn(f"Unknown channel {color}. Using default gamma value.")
+            gamma = gamma_default
+
+        # Clamp gamma to the allowed range [0, 2]
+        gamma = max(0, min(gamma, 2))
+        napari_gamma_dict[color] = gamma
+    return napari_gamma_dict
+
+# endregion
 
 # TODO: Fix pint warning
 def extract_key_metadata(reader, channels):
@@ -114,51 +134,63 @@ def extract_key_metadata(reader, channels):
             print(f"No metadata found for {key}")
             key_dict[key] = None
 
+    # region scaling
     try:
-        original_units = key_dict["DefaultScalingUnit"][0].text
+        default_scaling_unit = key_dict["DefaultScalingUnit"]
+        if not default_scaling_unit:
+            raise KeyError(f"Default scaling unit is {default_scaling_unit}")
+        original_units = default_scaling_unit[0].text
     except KeyError:
         warnings.warn("No OriginalUnits found. Assuming micrometre(µm)")
         original_units = "micrometre"
 
-    pint_ureg = pint.UnitRegistry()
+    pint_unit_register = pint.UnitRegistry()
     if original_units == "micrometre" or original_units == "µm":
         nm_scale = (reader.physical_pixel_sizes.Z, reader.physical_pixel_sizes.Y, reader.physical_pixel_sizes.X)
         scale = [s * 1000 for s in nm_scale]
-        pint_units = pint_ureg("nm")
+        pint_units = pint_unit_register("nm")
         units = (pint_units, pint_units, pint_units)
     else:
         scale = reader.physical_pixel_sizes
-        pint_units = pint_ureg(original_units)
+        pint_units = pint_unit_register(original_units)
         units = (pint_units, pint_units, pint_units)
+    # endregion
 
+    # Here reformat the metadata into a dictionary with a list size of channels.
+    channel_metadata = {}
+    for key, data in key_dict.items():
+        if data:
+            if len(data) == 1:
+                channel_metadata[key] = [data[0].text for _ in range(channels)]
+                continue
+            elif len(data) != channels:
+                raise ValueError(f"Expected {channels} values for {key}, got {len(data)}")
+                # This is mostly to filter out the weird Airy scans.
+
+            channel_metadata[key] = [data[i].text for i in range(channels)]
 
     # Fun side project. # TODO: Add to settings. And take max channel from the max wavelength.
-    max_channel = wavelength_luminous_dict["red"]
-    napari_gamma_dict = {
-        channel: compute_napari_gamma(value, max_channel, 1, 0.30)
-        for channel, value in wavelength_luminous_dict.items()
-    }
+    try:
+        wavelength_colors = [wavelength_to_color[round(float(color),0)] for color in channel_metadata["EmissionWavelength"]]
+        napari_gamma_dict = compute_napari_gamma(wavelength_colors, correction_weight=0.1, gamma_default=1.3)
+    except KeyError:
+        napari_gamma_dict = None
+        wavelength_colors = None
 
-    dict_list = []
-
+    channel_metadata_list = []
     for channel in range(channels):
         metadata_metadata = {}
-        for key, data in key_dict.items():
-            if data:
-                if len(data) == 1:
-                    metadata_metadata[key] = data[0].text
-                    continue
-                if len(data) < channels:
-                    raise ValueError(f"Number of entries should be 1 or equal(or more) to the number of channels. Found {len(data)} entries for {key}")
-                metadata_metadata[key] = data[channel].text
-            else:
-                metadata_metadata[key] = None
-        colormap = wavelength_to_color[int(metadata_metadata["EmissionWavelength"])]
-        try:
-            gamma = napari_gamma_dict[colormap.lower()]
-        except KeyError:
-            gamma = 1
-        metadata = {"scale": scale, "units": units, "metadata": metadata_metadata, "blending": "additive", "colormap": colormap, "gamma": gamma}
-        dict_list.append(metadata)
+        for key in channel_metadata:
+            metadata_metadata[key] = channel_metadata[key][channel]
 
-    return dict_list
+        if napari_gamma_dict:
+            colormap = wavelength_colors[channel]
+            gamma = napari_gamma_dict[colormap]
+        else:
+            colormap = None
+            gamma = 1.0
+
+        metadata = {"scale": scale, "units": units, "metadata": metadata_metadata, "blending": "additive", "colormap": colormap, "gamma": gamma}
+        channel_metadata_list.append(metadata)
+
+    return channel_metadata_list

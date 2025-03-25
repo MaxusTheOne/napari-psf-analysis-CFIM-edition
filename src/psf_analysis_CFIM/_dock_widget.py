@@ -734,9 +734,10 @@ class PsfAnalysis(QWidget):
             widget_settings = {**self.settings_Widget.settings["image_analysis_settings"], **{
                 "RI_mounting_medium": self.mounting_medium.value(), "Emission": self.emission.value(),
                 "NA": self.na.value()}}
-            expected_z_spacing = analyze_image(self._get_current_img_layers()[0], self.error_widget,
+            expected_z_spacing = analyze_image(self.image_selection.get_image(0), self.error_widget,
                                                widget_settings=widget_settings)
             self.psf_z_box_size.setValue(int(expected_z_spacing) * 3)
+            print(f"Dev | Analyzed: {self.image_selection.get_image(0)}") # This is supposed to mean it currently works badly
 
         except Exception as e:
             print("Error in image analysis: ", e)
