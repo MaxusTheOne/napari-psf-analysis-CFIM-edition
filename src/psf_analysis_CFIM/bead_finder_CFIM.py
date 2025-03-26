@@ -66,13 +66,14 @@ class BeadFinder:
 
             channels_beads_dicts.append(channel_beads_dict)
 
-        if self._debug: # It was really important to color code the output, trust me...
+        if self._debug: # It was really important to color code the output, trust me... # I should color each channel separately :D
             green = '\033[92m'
             yellow = '\033[93m'
             endc = '\033[0m'
-
+            passed_discarded_beads = len(total_discarded_beads) + len(total_beads)
+            # TODO: Have this count correctly for multiple channels
             print(
-                f"Beads {green}passed{endc} / {yellow}discarded{endc} of {len(self.images_list)} color channel{"s" if len(self.images_list) > 1 else ""} \nxy border: {green}{self.passed_bead_count[0]}{endc} / {yellow}{self.discarded_bead_count[0]}{endc} "
+                f"Beads {green}passed{endc} / {yellow}discarded{endc} of {passed_discarded_beads} for {len(self.images_list)} color channel{"s" if len(self.images_list) > 1 else ""} \nxy border: {green}{self.passed_bead_count[0]}{endc} / {yellow}{self.discarded_bead_count[0]}{endc} "
                 f"| z border: {green}{self.passed_bead_count[1]}{endc} / {yellow}{self.discarded_bead_count[1]}{endc} | neighbor dist: {green}{self.passed_bead_count[2]}{endc} / {yellow}{self.discarded_bead_count[2]}{endc}")
             print(f"Total: {green}{len(total_beads)}{endc} / {yellow}{len(total_discarded_beads)}{endc}")
         return channels_beads_dicts
@@ -89,8 +90,12 @@ class BeadFinder:
         # Combine discarded beads TODO: Add lines to visualize discarded beads from neighbor distance
 
         if self._debug:
-            self.passed_bead_count = [len(zyx_beads), len(yx_beads), len(beads)]
-            self.discarded_bead_count = [len(discarded_xy), len(zyx_discarded_beads), len(discarded_beads_by_neighbor_dist)]
+            self.passed_bead_count[0] += len(yx_beads)
+            self.passed_bead_count[1] += len(zyx_beads)
+            self.passed_bead_count[2] += len(beads)
+            self.discarded_bead_count[0] += len(discarded_xy)
+            self.discarded_bead_count[1] += len(zyx_discarded_beads)
+            self.discarded_bead_count[2] += len(discarded_beads_by_neighbor_dist)
 
         discarded_beads = zyx_discarded_beads + yx_discarded_beads + discarded_beads_by_neighbor_dist
         return beads, discarded_beads

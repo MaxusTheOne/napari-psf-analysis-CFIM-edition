@@ -4,10 +4,12 @@ from uuid import UUID
 
 import napari
 import numpy as np
-from PyQt5.QtCore import QSettings, Qt
+from IPython.terminal.shortcuts.auto_suggest import accept
+from PyQt5.QtCore import QSettings, Qt, pyqtSlot
 from PyQt5.QtGui import QPalette, QImage, QPixmap
 from PyQt5.QtWidgets import QHBoxLayout, QWidget, QComboBox, QPushButton, QApplication, QTabWidget, QLabel, QMessageBox, \
     QGroupBox, QDialog, QVBoxLayout, QDialogButtonBox, QCheckBox, QFormLayout, QLineEdit, QGridLayout
+from six import reraise
 
 from psf_analysis_CFIM.library_workarounds.MultiKeyDict import MultiKeyDict
 from psf_analysis_CFIM.library_workarounds.QLineEditWithColormapBg import QLineEditWithColormap
@@ -32,13 +34,15 @@ class NapariImageLayer(napari.layers.Image):
 class ImageInteractionManager(QWidget):
     def __init__(self, parent=None, viewer=None):
         super().__init__(parent)
-        self.drop_down = None
+        self.drop_down: QComboBox = None
         self.open_images_button = None
 
         self._viewer = viewer
         # Too scared of layers changing position in the viewer to use references instead of storing the layers
-        self._selected_as_layers: dict[NapariImageLayer]
+        self._selected_as_layers: dict[NapariImageLayer] # This is a bit deprecated now, replaced by .selected property
         self._multi_image_selection = ""
+
+        self._pre_select = {}
 
         self.image_layers_reference = MultiKeyDict()
         self._viewer.layers.events.inserted.connect(self.update_image_references)
@@ -46,19 +50,32 @@ class ImageInteractionManager(QWidget):
 
 
     def update_image_references(self):
-        print(f"Updating image references: {self._viewer.layers}")
-        self.image_layers_reference.clear()
+
         for index, layer in enumerate(self._viewer.layers):
             if isinstance(layer, napari.layers.Image):
                 data = layer.metadata
                 if data == {}:
                     continue
+
+                if self.image_layers_reference.has_id(layer.unique_id):
+                    continue
+
+                print(f"Adding layer {layer.name} to image reference.")
+                # Keys from the layer data we want to store # Why do layers not have a .get() method?
+                data["colormap"] = layer.colormap.name
+
+                if self._pre_select.get(layer.name, False):
+                    data["selected"] = True
+                    self._pre_select.clear()
+
+
                 if layer.metadata["EmissionWavelength"]:
                     self.image_layers_reference[layer.name, layer.unique_id, int(layer.metadata["EmissionWavelength"])] = data
                     continue
+
                 print(f"Layer {layer.name} has no wavelength metadata, using index instead.")
                 self.image_layers_reference[layer.name, layer.unique_id] = data
-        print(f"updated to: {self.image_layers_reference}")
+
 
     # image means a napari.layers.Image object
     @overload
@@ -93,7 +110,7 @@ class ImageInteractionManager(QWidget):
 
     def get_images(self, *args) -> List[NapariImageLayer]:
         if not args:
-            return self.get_images_from_selection()
+            return self.get_selected_as_layers()
         if not isinstance(args[0], list):
             raise ValueError(f"Invalid argument type, must be list | Got {type(args[0]) if args else 'None'}")
         items = args[0]
@@ -156,13 +173,10 @@ class ImageInteractionManager(QWidget):
         if type(wavelength) is str:
             wavelength = int(wavelength)
         try:
-            return self._selected_as_layers[wavelength].colormap.name
-        except IndexError:
-            try:
-                name = self.image_layers_reference[wavelength]["name"]
-                return self.get_image(name).colormap.name
-            except KeyError:
-                raise ValueError(f"Invalid wavelength | {wavelength}")
+            return self.image_layers_reference[wavelength]["colormap"]
+        except KeyError:
+            print(f"Invalid wavelength: {wavelength}")
+            return ""
 
     # region dropdown methods
     def add_item(self, item):
@@ -189,68 +203,75 @@ class ImageInteractionManager(QWidget):
 
     def open_images_clicked(self):
 
-        images = {}
-        for layer in self._viewer.layers:
-            if isinstance(layer, napari.layers.Image):
-                layer.selected = any(layer.name == selected.name for selected in self._selected_as_layers)
-                images[layer.unique_id](layer)
         selected_images_dict = {}
-        dialog = ImageSelectionDialog(parent= self, images = images)
+        dialog = ImageSelectionDialog(parent= self, images = self.image_layers_reference)
         if dialog.exec() == QDialog.Accepted:
             selected_images_dict = dialog.get_selected_images()
 
-            self.set_selected_as_layers(self, selected_images_dict)
+            self.update_layers(selected_images_dict)
 
 
-    def get_images_from_selection(self):
+    def get_selected(self):
         return self._selected_as_layers
 
-    def get_as_layers(self):
-        layer_validity = self._check_layers_validity(self._selected_as_layers)
-        if layer_validity:
-            return self._selected_as_layers
-        else:
-            raise ValueError(f"Invalid layers selected | {self._selected_as_layers}")
+    def get_selected_as_layers(self):
+        layers_selected = self.image_layers_reference.get_all("selected", True)
+        return [self._viewer.layers[layer["name"]] for layer in layers_selected]
 
-    def get_image_if_single(self):
+    def get_selected_if_single(self):
         if len(self._selected_as_layers) == 1:
             return self._selected_as_layers[0]
         else:
             raise ValueError("More than one image selected | Temp fix for legacy code, intended to break on purpose :3 ")
 
     @overload
-    def set_selected_as_layers(self, layers: List[NapariImageLayer]) -> None:
+    def update_layers(self, layers: List[UUID | int | str:dict]) -> None:
         ...
     @overload
-    def set_selected_as_layers(self, layers: dict[NapariImageLayer]) -> None:
-        ...
-    @overload
-    def set_selected_as_layers(self, layers: dict[dict]) -> None:
+    def update_layers(self, layers: dict[UUID | int | str:dict]) -> None:
         ...
 
-    def set_selected_as_layers(self, layers):
+    def update_layers(self, layers): # Usually we expect a dict with UUID: dict.
         if isinstance(layers, list):
             layers = {layer.unique_id: layer for layer in layers}
-        elif type(layers) != list:
-            layers = {layers.unique_id(): layers}
+        elif len(layers) == 1:
             print(f"1 layer selected: {layers}")
 
 
         self._clear_multi_image_selection()
 
+        # Update the image reference with the new data
+        for uuid in layers:
+            self.image_layers_reference[uuid].update(layers[uuid])
+        selected_layers = [uuid for uuid in layers if layers[uuid].get("selected", False)]
+        selected_len = len(selected_layers)
+        if selected_len == 1:
+            text = self.image_layers_reference[selected_layers[0]]["name"]
+
+            self.drop_down.setCurrentIndex(self.drop_down.findText(text))
+        elif len(layers) > 1:
+            self._set_multi_image_dropdown(selected_len)
+
+
         if len(layers) == 1:
             for layer in layers:
-                text = layer["name"]
-                self._selected_as_layers = {layer.unique_id: self._viewer.layers[text]}
+                text = self.image_layers_reference[layer]["name"]
                 self.drop_down.setCurrentIndex(self.drop_down.findText(text))
                 return
 
-        if len(layers) > 1:
-            self._set_multi_image_dropdown(len(layers))
+
 
         if len(layers) == 0:
             print(f"Selected layers: {layers} | multi: {self._multi_image_selection}")
-        self._selected_as_layers = layers
+
+    def select_layer(self, uuid: UUID):
+        if UUID == "":
+            return
+        layers_to_change = {uuid: {"selected": True}}
+        for layer in self.image_layers_reference.to_dict(): # .to_dict() identifier is UUID, we can use that to simplify this
+            if layer != uuid:
+                layers_to_change[layer] = {"selected": False}
+        self.update_layers(layers_to_change)
 
 
 
@@ -260,8 +281,15 @@ class ImageInteractionManager(QWidget):
         if text == self._multi_image_selection:
             return
         if text != self._multi_image_selection:
+            if text is None:
+                return
             self._clear_multi_image_selection()
-
+        layer_dict = self.image_layers_reference.get(text, None)
+        if layer_dict is None:
+            self._pre_select = {text: True}
+            print(f"Pre-selecting {text}")
+            return
+        self.select_layer(self.image_layers_reference[text].get("unique_id", ""))
         self._selected_as_layers = [self._viewer.layers[text]]
 
     # region private methods
@@ -390,10 +418,10 @@ def alignment_to_str(alignment):
 # endregion
 
 class ImageSelectionDialog(QDialog):
-    def __init__(self, images, parent=None):
+    def __init__(self, images: MultiKeyDict, parent=None):
         super().__init__(parent)
-        self.images = images
-        self.selected_images: dict[dict] | dict[str,dict]
+        self.image_layers = images.to_dict() # Expected to be out image reference dict.
+        self.selected_images: dict = {}
         self._init_ui()
 
     def _init_ui(self):
@@ -407,26 +435,28 @@ class ImageSelectionDialog(QDialog):
 
         self.checkboxes = {}
         self.colormaps = {}
-        for row, image in enumerate(self.images, start=1):
+
+        for row, uuid in enumerate(self.image_layers, start=1):
+            layer = self.image_layers[uuid]
             checkbox = QCheckBox(self)
-            checkbox.setChecked(image.selected)
+            checkbox.setChecked(layer.get("selected", False))
 
-            image_label = QLabel(image.name, self)
+            image_label = QLabel(layer["name"], self)
 
 
-            colormap_input = QLineEditWithColormap(parent = self, colormap_name= image.colormap.name)
-            colormap_input.setText(image.colormap.name)
+            colormap_input = QLineEditWithColormap(parent = self, colormap_name= layer["colormap"])
+            colormap_input.setText(layer["colormap"])
 
             # Order: Checkbox | Image Name | Colormap Input
             grid_layout.addWidget(checkbox, row, 0)
             grid_layout.addWidget(image_label, row, 1)
             grid_layout.addWidget(colormap_input, row, 2)
 
-            self.checkboxes[image] = checkbox
-            self.colormaps[image] = colormap_input
+            self.checkboxes[uuid] = checkbox
+            self.colormaps[uuid] = colormap_input
 
 
-        rows = len(self.images)
+        rows = len(self.image_layers)
         # Add OK/Cancel buttons below the image rows, spanning all 3 columns.
         button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, self)
         button_box.accepted.connect(self.on_accept)
@@ -435,10 +465,20 @@ class ImageSelectionDialog(QDialog):
 
     def on_accept(self):
         # Iterate through checkboxes to determine selected images.
-        colormaps = [colormap.text() for image, colormap in self.colormaps.items() if self.checkboxes[image].isChecked()]
-        image_layers = [image for image, cb in self.checkboxes.items() if cb.isChecked()]
-        layer_id = [image.unique_id for image in image_layers]
-        self.selected_images = {f"{layer_id[i]}": {"colormap": colormaps[i], "name": image_layers[i].name} for i in range(len(image_layers))}
+        colormaps = [colormap.text() for image, colormap in self.colormaps.items()]
+        image_layers = [image for image, cb in self.checkboxes.items()]
+        selected = [cb.isChecked() for cb in self.checkboxes.values()]
+
+        print(f"image_layers: {image_layers} | cb items: {self.checkboxes.items()} | colormaps: {colormaps}")
+
+
+        for i in range(len(image_layers)):
+            try:
+                data = {"selected": selected[i], "colormap": colormaps[i]}
+                self.selected_images[image_layers[i]] = data
+            except (IndexError, TypeError) as e:
+                print(f"Error: {e}")
+                raise
         self.accept()  # Close dialog with accepted status.
 
     def get_selected_images(self):

@@ -543,7 +543,7 @@ class PsfAnalysis(QWidget):
 
     def _create_bead_finder(self):
 
-        image_layers = self.image_selection.get_as_layers()
+        image_layers = self.image_selection.get_selected_as_layers()
         print(f"Image layers len: {len(image_layers)}")
 
         self.bead_finder = BeadFinder(image_layers, self.get_scale(), bounding_box=(self.psf_z_box_size.value(), self.psf_yx_box_size.value(), self.psf_yx_box_size.value()))
@@ -580,47 +580,13 @@ class PsfAnalysis(QWidget):
         self.cancel.setText("Cancelling...")
 
     def prepare_measure(self): # Time to refactor this; Support for color channels; and use imageManager
-        img_data = self.image_selection.get_images()[0].data
-        if img_data is None:
-            return
-
-        point_data = self._get_point_data()[0]
-        if point_data is None:
-            return
-
-        print(f"Point data: {len(point_data)} points | Img shape: {img_data.shape}")
-        self._setup_progressbar(point_data)
-
-        analyzer_settings = {
-            "wavelength_color": self.color_from_emission_wavelength(),
-        }
-
-        analyzer = Analyzer(parameters=PSFAnalysisInputs(
-            microscope=self._get_microscope(),
-            magnification=self.magnification.value(),
-            na=self.na.value(),
-            spacing=self._get_spacing(),
-            patch_size=self._get_patch_size(),
-            name=self.image_selection.get_image_name(),
-            img_data=img_data,
-            point_data=point_data,
-            dpi=int(self.summary_figure_dpi.currentText()),
-            date=datetime(*self.date.date().getDate()).strftime("%Y-%m-%d"),
-            version=version("psf_analysis_CFIM")
-            ),
-            settings=analyzer_settings
-        )
-        print(f"Analyzer settings: {analyzer._parameters}")
-
         # Note: Why is it called measurement_stack? It's a stack of summary images.
-        def _on_done(result):
+        def _on_done(result): # TODO: Refactor this out of scope
             if result is not None:
 
                 # unpacks the result from analyzer. Should contain a stack of summary images and the scale.
                 measurement_stack, measurement_scale = result
                 self.summary_figs = measurement_stack
-
-                bead_img_stack = analyzer.get_raw_beads_filtered()
 
                 # filtered_figs = filter_psf_beads_by_box(self.results, measurement_stack, (self.psf_z_box_size.value(), self.psf_yx_box_size.value(), self.psf_yx_box_size.value()))
                 # print(f"Theoretical filtered list len: {len(filtered_figs)}")
@@ -647,8 +613,9 @@ class PsfAnalysis(QWidget):
                 display_measurement_stack(combined_stack, measurement_scale)
 
                 _hide_point_layers()
-
             _reset_state()
+
+
 
         def display_measurement_stack(averaged_measurement, measurement_scale):
             """Display the averaged measurement stack in the viewer."""
@@ -670,11 +637,12 @@ class PsfAnalysis(QWidget):
 
         def _update_progress(progress: int):
             self.progressbar.setValue(progress)
+            print(f"Progress: {self.progressbar.value()} / {self.progressbar.maximum()}")
             if self.cancel_extraction:
                 worker.quit()
 
         def _reset_state():
-            if self.cancel_extraction:
+            if self.cancel_extraction or self.progressbar.value() == self.progressbar.maximum():
                 self.progressbar.setValue(0)
                 self.cancel_extraction = False
                 self.cancel.setEnabled(False)
@@ -682,7 +650,40 @@ class PsfAnalysis(QWidget):
                 self.extract_psfs.setEnabled(True)
                 self.progressbar.reset()
 
-        @thread_worker(progress={"total": len(point_data)}, worker_class=GeneratorWorker)
+        channel_layers = self.image_selection.get_selected_as_layers()
+        point_data = self._get_point_data()
+        img_data = self.image_selection.get_images()[0].data
+        if img_data is None:
+            return
+
+        channel_points = self._get_point_data()[0]
+        if channel_points is None:
+            return
+
+        print(f"Point data: {len(channel_points)} points | Img shape: {img_data.shape}")
+        self._setup_progressbar(channel_points)
+
+        analyzer_settings = {
+            "wavelength_color": self.color_from_emission_wavelength(),
+        }
+
+        analyzer = Analyzer(parameters=PSFAnalysisInputs(
+            microscope=self._get_microscope(),
+            magnification=self.magnification.value(),
+            na=self.na.value(),
+            spacing=self._get_spacing(),
+            patch_size=self._get_patch_size(),
+            name=self.image_selection.get_image_name(),
+            img_data=img_data,
+            point_data=channel_points,
+            dpi=int(self.summary_figure_dpi.currentText()),
+            date=datetime(*self.date.date().getDate()).strftime("%Y-%m-%d"),
+            version=version("psf_analysis_CFIM")
+        ),
+            settings=analyzer_settings
+        )
+
+        @thread_worker(progress={"total": len(channel_points)}, worker_class=GeneratorWorker)
         def measure():
 
             yield from analyzer
@@ -777,7 +778,7 @@ class PsfAnalysis(QWidget):
             return point_layers
 
     def _get_current_img_layers(self):
-        img_layers = self.image_selection.get_as_layers()
+        img_layers = self.image_selection.get_selected_as_layers()
         return img_layers
 
     def _get_current_img_data(self):
