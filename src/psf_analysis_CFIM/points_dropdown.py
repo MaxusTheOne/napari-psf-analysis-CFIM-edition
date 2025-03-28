@@ -32,17 +32,18 @@ class PointsDropdown(QComboBox):
     def get_selected(self):
         if self.multi_selection is not []:
             dropdown_names = []
-            names = []
+            names = {}
             for index in range(self.count()):
                 dropdown_names.append(self.itemText(index))
             for wavelength in self.multi_selection:
                 for name in dropdown_names:
                     if wavelength in name:
-                        names.append(name)
+                        names[wavelength] = name
 
             return names
         else:
-            return [self.currentText()]
+            print("No layers selected")
+            return {"0":self.currentText()}
 
 
     def set_multi_selection(self, index_list):

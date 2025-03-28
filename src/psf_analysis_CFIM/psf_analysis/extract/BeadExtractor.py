@@ -55,6 +55,9 @@ class BeadExtractor:
 
         return beads
 
+    def get_margins(self):
+        return self._margins
+
     def _create_slices(self, point: Tuple[int, int, int]) -> Tuple[slice, slice, slice]:
         slices = []
         for coordinate, margin in zip(point, self._margins):

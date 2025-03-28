@@ -13,7 +13,7 @@ import yaml
 from fontTools.misc.arrayTools import pointsInRect
 from qtpy.QtWidgets import QLayout
 from napari import viewer
-from napari._qt.qthreading import FunctionWorker, thread_worker, GeneratorWorker
+from napari.qt.threading import FunctionWorker, thread_worker, GeneratorWorker
 from napari.settings import get_settings
 from napari.utils.notifications import show_info, show_warning
 from qtpy.QtWidgets import (
@@ -115,7 +115,7 @@ class PsfAnalysis(QWidget):
         # Variables
         self._debug = False
         self.summary_figs = None
-        self.results = None
+        self.results = []
         self.warnings = []
         self.errors = []
 
@@ -199,18 +199,23 @@ class PsfAnalysis(QWidget):
     def _add_analyse_buttons(self):
         pane = QGroupBox(parent=self)
         pane.setLayout(QFormLayout())
+
         self.find_beads_button = QPushButton("Find Beads")
         self.find_beads_button.setEnabled(True)
         self.find_beads_button.clicked.connect(self._find_beads)
         pane.layout().addRow(self.find_beads_button)
+
         self.analyse_img_button = QPushButton("Re-Analyse Image")
         self.analyse_img_button.setEnabled(True)
         self.analyse_img_button.clicked.connect(self._validate_image)
         pane.layout().addRow(self.analyse_img_button)
+
         self.error_widget = ErrorDisplayWidget(parent=self, viewer=self.viewer)
         pane.layout().addRow(self.error_widget)
+
         self.toggle_range_indicator = ToggleRangeIndicator(self, parent=pane)
         pane.layout().addWidget(self.toggle_range_indicator.init_ui())
+
         self.layout().addWidget(pane)
 
     def _test_error(self):
@@ -240,11 +245,11 @@ class PsfAnalysis(QWidget):
         bead_colors = [self.image_selection.get_color_by_wavelength(wavelength) for wavelength in wavelengths]
 
         layer_amount = len(estimated_beads)
-        for layer in self.viewer.layers:
-            if not isinstance(layer, napari.layers.Image):
-                if base_name in layer.name:
-                    self.viewer.layers.remove(layer)
-                continue
+        estimated_beads_layers = [layer for layer in self.viewer.layers if base_name in layer.name]
+        for layer in estimated_beads_layers:
+            self.viewer.layers.remove(layer)
+
+
 
         keys = {"points": points, "wavelength": wavelengths, "bead_colors": bead_colors}
         for key_name, key_value in keys.items():
@@ -277,19 +282,25 @@ class PsfAnalysis(QWidget):
     def _add_interaction_buttons(self):
         pane = QGroupBox(parent=self)
         pane.setLayout(QFormLayout())
+
         self.extract_psfs = QPushButton("Extract PSFs")
         self.extract_psfs.clicked.connect(self.prepare_measure)
         pane.layout().addRow(self.extract_psfs)
+
         self.cancel = QPushButton("Cancel")
         self.cancel.clicked.connect(self.request_cancel)
         pane.layout().addRow(self.cancel)
+
+        self._channel_progress = {}
         self.progressbar = QProgressBar(parent=self)
         self.progressbar.setValue(0)
         pane.layout().addRow(self.progressbar)
+
         self.delete_measurement = QPushButton("Delete Displayed Measurement")
         self.delete_measurement.setEnabled(False)
         self.delete_measurement.clicked.connect(self.delete_measurement_action)
         pane.layout().addRow(self.delete_measurement)
+
         self.layout().addWidget(pane)
 
     def _add_advanced_settings_tab(self, setting_tabs):
@@ -584,17 +595,19 @@ class PsfAnalysis(QWidget):
     def prepare_measure(self): # Time to refactor this; Support for color channels; and use imageManager
         # Note: Why is it called measurement_stack? It's a stack of summary images.
         def _on_done(result): # TODO: Refactor this out of scope
+            print(f"ON DONE, stack: {result[0].shape} | Analyzer: {result[2]}")
             if result is not None:
 
                 # unpacks the result from analyzer. Should contain a stack of summary images and the scale.
-                measurement_stack, measurement_scale = result
-                self.summary_figs = measurement_stack
+                measurement_stack, measurement_scale, current_analyzer = result
+
+                summary_figs = measurement_stack
 
                 # filtered_figs = filter_psf_beads_by_box(self.results, measurement_stack, (self.psf_z_box_size.value(), self.psf_yx_box_size.value(), self.psf_yx_box_size.value()))
                 # print(f"Theoretical filtered list len: {len(filtered_figs)}")
 
                 # Creates an image of the average bead, runs the PSF analysis on it and creates summary image.
-                averaged_bead = analyzer.get_averaged_bead()
+                averaged_bead = current_analyzer.get_averaged_bead()
                 averaged_psf = PSF(image=averaged_bead)
 
                 averaged_psf.analyze()
@@ -606,24 +619,26 @@ class PsfAnalysis(QWidget):
                     version=analyzer.get_version(),
                     dpi=analyzer.get_dpi(),
                     top_left_message=f"Average PSF of {len(measurement_stack)} beads",
-                    ellipsoid_color=self.color_from_emission_wavelength()
+                    ellipsoid_color=current_analyzer.get_wavelength_color(),
                 )
+
+                figure_title = f"PSF Summary | {current_analyzer.get_wavelength()}λ | {current_analyzer.get_wavelength_color()}"
 
                 # Combines the summary image from average bead with the summary image stack from the entire psf analysis.
                 averaged_summary_image_expanded = np.expand_dims(averaged_summary_image, axis=0)
                 combined_stack = np.concatenate((averaged_summary_image_expanded, measurement_stack), axis=0)
-                display_measurement_stack(combined_stack, measurement_scale)
+                display_measurement_stack(combined_stack, measurement_scale, figure_title)
 
                 _hide_point_layers()
             _reset_state()
 
 
 
-        def display_measurement_stack(averaged_measurement, measurement_scale):
+        def display_measurement_stack(averaged_measurement, measurement_scale, name="PSF images"):
             """Display the averaged measurement stack in the viewer."""
             self.viewer.add_image(
                 averaged_measurement,
-                name="PSF images",
+                name=name,
                 interpolation2d="bicubic",
                 rgb=True,
                 scale=measurement_scale,
@@ -637,9 +652,17 @@ class PsfAnalysis(QWidget):
                 if isinstance(layer, napari.layers.Points):
                     layer.visible = False
 
-        def _update_progress(progress: int):
-            self.progressbar.setValue(progress)
-            print(f"Progress: {self.progressbar.value()} / {self.progressbar.maximum()}")
+        def _update_progress(return_val): # TODO: Make this more efficient
+            progress = return_val[0]
+            color = return_val[1]
+
+            self._channel_progress[color] = progress
+            total_progress = 0
+            for key in self._channel_progress.keys():
+                total_progress += self._channel_progress[key]
+            self.progressbar.setValue(total_progress)
+            if self._debug:
+                print(f"Progress: {self.progressbar.value()} / {self.progressbar.maximum()}")
             if self.cancel_extraction:
                 worker.quit()
 
@@ -654,37 +677,35 @@ class PsfAnalysis(QWidget):
 
         selected_image_layers = self.image_selection.get_selected_as_dict()
         point_data = self._get_points_as_dict()
-        matched = {}
-        for key, points in point_data.items():
-            # Extract the wavelength number from the key (e.g. 668 from '668λ | Estimated Beads')
-            match = re.search(r'(\d+)λ', key)
-            if not match:
-                continue
-            wavelength = int(match.group(1))
 
-            # Find an image layer with matching EmissionWavelength
-            for name, image_layer in selected_image_layers.items():
-                emission = image_layer.metadata.get("EmissionWavelength")
-                if emission == wavelength:
-                    matched[key] = {"points": points, "image_layer": image_layer}
+        bead_amount = 0
+        matched = {}
+        for wavelength, point_layer_ref in point_data.items():
+            for image_layer_name, image_layer in selected_image_layers.items():
+                if int(image_layer.metadata["EmissionWavelength"]) == int(wavelength):
+                    points = self.viewer.layers[point_layer_ref]
+                    matched[wavelength] = (points, image_layer)
+                    bead_amount += len(points.data)
                     break
 
+        if len(matched) == 0:
+            show_warning("No matching image and point layer found.")
+            return
+        if len(matched) != len(selected_image_layers):
+            show_warning("Not all images have a matching point layer.")
+            return
 
-        print(f"Matched: {matched}")
-        for points, image_layer in matched.values():
+        self.results = []
+        self._setup_progressbar(bead_amount)
+
+        for points_layer, image_layer in matched.values():
             channel_image = image_layer.data
-            channel_points = points
-            print(f"Analyzing: {image_layer} | Points: {channel_points.shape}")
-            if channel_image is None:
-                return
+            channel_points = points_layer.data
 
-            if channel_points is None:
-                return
 
-            self._setup_progressbar(channel_points)
-
-            analyzer_settings = {
-                "wavelength_color": self.color_from_emission_wavelength(),
+            analyzer_settings = { # TODO: Color needs to be gotten from the image manager
+                "wavelength": int(image_layer.metadata["EmissionWavelength"]),
+                "wavelength_color": self.color_from_emission_wavelength(int(image_layer.metadata["EmissionWavelength"])),
             }
 
             analyzer = Analyzer(parameters=PSFAnalysisInputs(
@@ -693,7 +714,7 @@ class PsfAnalysis(QWidget):
                 na=self.na.value(),
                 spacing=self._get_spacing(),
                 patch_size=self._get_patch_size(),
-                name=self.layer,
+                name=image_layer.name,
                 img_data=channel_image,
                 point_data=channel_points,
                 dpi=int(self.summary_figure_dpi.currentText()),
@@ -703,22 +724,22 @@ class PsfAnalysis(QWidget):
                 settings=analyzer_settings
             )
 
-            @thread_worker(progress={"total": len(channel_points)}, worker_class=GeneratorWorker)
-            def measure():
 
-                yield from analyzer
+            @thread_worker(progress={"total": bead_amount})
+            def measure(current_image_layer=image_layer, current_analyzer=analyzer):
 
-                self.results = analyzer.get_results()
-                measurement_stack, measurement_scale = analyzer.get_summary_figure_stack(
+                yield from current_analyzer
+
+                self.results.append( current_analyzer.get_results())
+                measurement_stack, measurement_scale = current_analyzer.get_summary_figure_stack(
                     bead_img_scale=self.get_scale(),
-                    bead_img_shape=self.viewer.layers[
-                        self.image_selection.get_image_name()
-                    ].data.shape,
+                    bead_img_shape=current_image_layer.data.shape,
                 )
                 if measurement_stack is not None:
-                    return measurement_stack, measurement_scale
+                    return measurement_stack, measurement_scale, current_analyzer
 
             worker: GeneratorWorker = measure()
+
 
             worker.yielded.connect(_update_progress)
             worker.returned.connect(_on_done)
@@ -729,12 +750,14 @@ class PsfAnalysis(QWidget):
             self.extract_psfs.setEnabled(False)
             self.cancel.setEnabled(True)
 
-    def color_from_emission_wavelength(self):
+    def color_from_emission_wavelength(self, wavelength: int=None):
         """
             Returns a color based on the emission wavelength in nm.
         """
-        wavelength = self.emission.value()
-        if wavelength is None or wavelength <= 0:
+        if not wavelength:
+            wavelength = self.emission.value()
+
+        if wavelength is None or wavelength < 380:
             return "Gray"
         # Self-implemented range dict :) # Maybe move the dict elsewhere, since it gets created every time.
         wavelength_color_range_dict = RangeDict(
@@ -763,11 +786,13 @@ class PsfAnalysis(QWidget):
             print("Error in image analysis: ", e)
             raise e
 
-    def _setup_progressbar(self, point_data):
+    def _setup_progressbar(self, max_points):
         self.progressbar.reset()
         self.progressbar.setMinimum(0)
-        self.progressbar.setMaximum(len(point_data))
+        self.progressbar.setMaximum(max_points)
         self.progressbar.setValue(0)
+
+        self._channel_progress = {}
 
     def _get_img_name(self):
         return "Image" # DEBUG: This is a placeholder
@@ -782,12 +807,8 @@ class PsfAnalysis(QWidget):
             return basename(img_layer.source.path)
 
     def _get_points_as_dict(self):
-        point_names = self.point_dropdown.get_selected()
-        point_layers = {}
-        print(f"Point names: {point_names}")
-        for layer in self.viewer.layers:
-            if str(layer) in point_names:
-                point_layers[str(layer)] = layer.data
+        point_layers = self.point_dropdown.get_selected()
+
         if point_layers is None:
             show_info(
                 "Please add a point-layer and annotate the beads you "

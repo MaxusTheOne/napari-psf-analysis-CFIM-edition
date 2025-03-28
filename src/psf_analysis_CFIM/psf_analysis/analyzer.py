@@ -16,7 +16,10 @@ from psf_analysis_CFIM.psf_analysis.psf import PSF
 
 
 class Analyzer:
-    def __init__(self, parameters: PSFAnalysisInputs, settings: dict = {"wavelength_color": "red"}):
+    def __init__(self, parameters: PSFAnalysisInputs, settings=None):
+        if settings is None:
+            settings = {"wavelength_color": "black",
+                        "wavelength": 0}
         self._parameters = parameters
         bead_extractor = BeadExtractor(
             image=Calibrated3DImage(
@@ -24,7 +27,8 @@ class Analyzer:
             ),
             patch_size=parameters.patch_size,
         )
-        self._bead_margins = bead_extractor._margins
+        self._bead_margins = bead_extractor.get_margins()
+        self._wavelength = settings["wavelength"]
         self._wavelength_color = settings["wavelength_color"]
         self._invalid_beads_index = []
         self._beads = bead_extractor.extract_beads(points=self._parameters.point_data)
@@ -34,12 +38,12 @@ class Analyzer:
         self._results = None
         self._result_figures = {}
         self._index = 0
-        try:
-            self._debug = os.environ["PSF_ANALYSIS_CFIM_DEBUG"] == "1"
-        except Exception:
-            self._debug = False
+
+        self._debug = os.environ.get("PSF_ANALYSIS_CFIM_DEBUG", "0") == "1"
+
         if self._debug:
             print("Analyzer | Debug")
+            print(f"Analyzer for {self._wavelength_color} with {len(self._beads)} beads")
 
     def __iter__(self):
         return self
@@ -77,8 +81,10 @@ class Analyzer:
                 report_error("", bead.get_middle_coordinates())
 
             self._index += 1
-            return self._index + self._extractor_points_diff
+            return self._index + self._extractor_points_diff, self._wavelength_color
         else:
+            if self._debug:
+                print(f"Analyzer | Finished analyzing {len(self._beads)} beads")
             raise StopIteration()
 
     def get_date(self):
@@ -92,6 +98,14 @@ class Analyzer:
     def get_dpi(self):
         """Return the DPI of the analysis."""
         return self._parameters.dpi
+
+    def get_wavelength(self):
+        """Return the wavelength of the image."""
+        return self._wavelength
+
+    def get_wavelength_color(self):
+        """Return the color of the wavelength."""
+        return self._wavelength_color
 
     def get_raw_beads(self):
         """Return the raw data of the beads before analysis."""
