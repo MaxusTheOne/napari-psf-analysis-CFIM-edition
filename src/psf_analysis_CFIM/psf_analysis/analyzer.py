@@ -84,7 +84,7 @@ class Analyzer:
             return self._index + self._extractor_points_diff, self._wavelength_color
         else:
             if self._debug:
-                print(f"Analyzer | Finished analyzing {len(self._beads)} beads")
+                print(f"Analyzer {self._wavelength}| Finished analyzing {len(self._beads)} beads")
             raise StopIteration()
 
     def get_date(self):

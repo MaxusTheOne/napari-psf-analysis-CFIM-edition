@@ -60,7 +60,6 @@ class ImageInteractionManager(QWidget):
                 if self.image_layers_reference.has_id(layer.unique_id):
                     continue
 
-                print(f"Adding layer {layer.name} to image reference.")
                 # Keys from the layer data we want to store # Why do layers not have a .get() method?
                 data["colormap"] = layer.colormap.name
 
@@ -68,13 +67,9 @@ class ImageInteractionManager(QWidget):
                     data["selected"] = True
                     self._pre_select.clear()
 
+                self.image_layers_reference[layer.name, layer.unique_id, int(layer.metadata["EmissionWavelength"])] = data
 
-                if layer.metadata["EmissionWavelength"]:
-                    self.image_layers_reference[layer.name, layer.unique_id, int(layer.metadata["EmissionWavelength"])] = data
-                    continue
 
-                print(f"Layer {layer.name} has no wavelength metadata, using index instead.")
-                self.image_layers_reference[layer.name, layer.unique_id] = data
 
 
     # image means a napari.layers.Image object

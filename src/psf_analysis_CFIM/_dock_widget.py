@@ -595,7 +595,6 @@ class PsfAnalysis(QWidget):
     def prepare_measure(self): # Time to refactor this; Support for color channels; and use imageManager
         # Note: Why is it called measurement_stack? It's a stack of summary images.
         def _on_done(result): # TODO: Refactor this out of scope
-            print(f"ON DONE, stack: {result[0].shape} | Analyzer: {result[2]}")
             if result is not None:
 
                 # unpacks the result from analyzer. Should contain a stack of summary images and the scale.
@@ -655,6 +654,8 @@ class PsfAnalysis(QWidget):
         def _update_progress(return_val): # TODO: Make this more efficient
             progress = return_val[0]
             color = return_val[1]
+            if not isinstance(progress, int) or not isinstance(color, str):
+                raise ValueError(f"Expected int, str | Got: {type(progress)}, {type(color)}")
 
             self._channel_progress[color] = progress
             total_progress = 0
@@ -760,6 +761,7 @@ class PsfAnalysis(QWidget):
         if wavelength is None or wavelength < 380:
             return "Gray"
         # Self-implemented range dict :) # Maybe move the dict elsewhere, since it gets created every time.
+        # TODO: Move this to settings
         wavelength_color_range_dict = RangeDict(
             [(380, 450, "Violet"),
              (450, 485, "Blue"),
@@ -793,18 +795,6 @@ class PsfAnalysis(QWidget):
         self.progressbar.setValue(0)
 
         self._channel_progress = {}
-
-    def _get_img_name(self):
-        return "Image" # DEBUG: This is a placeholder
-        img_layer = None
-        for layer in self.viewer.layers:
-            if str(layer) == self.cbox_img.currentText():
-                img_layer = layer
-
-        if img_layer is None:
-            return None
-        else:
-            return basename(img_layer.source.path)
 
     def _get_points_as_dict(self):
         point_layers = self.point_dropdown.get_selected()
