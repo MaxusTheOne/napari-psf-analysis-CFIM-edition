@@ -47,3 +47,9 @@ This edition includes the following additional features:
 - Intensity for bead finder is hardcoded for now.
 - Some images might still crash in the analysis.
 - Hidden layer RaIn_label might show in newer versions of napari. (Only planned as of writing this)
+
+
+## License
+
+Distributed under the terms of the [BSD-3] license,
+"psf-analysis-CFIM" is free and open source software

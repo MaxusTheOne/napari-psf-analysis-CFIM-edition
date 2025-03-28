@@ -110,7 +110,7 @@ class ImageInteractionManager(QWidget):
 
     def get_images(self, *args) -> List[NapariImageLayer]:
         if not args:
-            return self.get_selected_as_layers()
+            return self.get_selected_as_list()
         if not isinstance(args[0], list):
             raise ValueError(f"Invalid argument type, must be list | Got {type(args[0]) if args else 'None'}")
         items = args[0]
@@ -214,9 +214,13 @@ class ImageInteractionManager(QWidget):
     def get_selected(self):
         return self._selected_as_layers
 
-    def get_selected_as_layers(self):
+    def get_selected_as_list(self):
         layers_selected = self.image_layers_reference.get_all("selected", True)
         return [self._viewer.layers[layer["name"]] for layer in layers_selected]
+
+    def get_selected_as_dict(self):
+        layers_selected = self.image_layers_reference.get_all("selected", True)
+        return {layer["name"]: self._viewer.layers[layer["name"]] for layer in layers_selected}
 
     def get_selected_if_single(self):
         if len(self._selected_as_layers) == 1:

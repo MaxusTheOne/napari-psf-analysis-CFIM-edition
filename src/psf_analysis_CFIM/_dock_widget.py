@@ -1,5 +1,6 @@
 import os
 import pathlib
+import re
 import warnings
 from datetime import datetime
 from importlib.metadata import version
@@ -9,6 +10,7 @@ from typing import overload, Tuple
 import napari.layers
 import numpy as np
 import yaml
+from fontTools.misc.arrayTools import pointsInRect
 from qtpy.QtWidgets import QLayout
 from napari import viewer
 from napari._qt.qthreading import FunctionWorker, thread_worker, GeneratorWorker
@@ -218,16 +220,16 @@ class PsfAnalysis(QWidget):
 
         # Estimates points for the user.
         self._create_bead_finder()
-        channels_dict_list = self.bead_finder.find_beads()
+        points_dict_list = self.bead_finder.find_beads()
 
         # Displays the points in the viewer with a name like "xxλ | Estimated Beads"
-        self._estimated_beads_to_viewer(channels_dict_list)
+        self._estimated_beads_to_viewer(points_dict_list)
 
         # Sets the point dropdown to the estimated beads
-        self.point_dropdown.set_multi_selection_by_wavelength([channel["wavelength"] for channel in channels_dict_list])
+        self.point_dropdown.set_multi_selection_by_wavelength([channel["wavelength"] for channel in points_dict_list])
 
 
-        for channel in channels_dict_list:
+        for channel in points_dict_list:
             report_warning("", points = channel["discarded"])
 
     def _estimated_beads_to_viewer(self, estimated_beads: list[dict]):
@@ -543,7 +545,7 @@ class PsfAnalysis(QWidget):
 
     def _create_bead_finder(self):
 
-        image_layers = self.image_selection.get_selected_as_layers()
+        image_layers = self.image_selection.get_selected_as_list()
         print(f"Image layers len: {len(image_layers)}")
 
         self.bead_finder = BeadFinder(image_layers, self.get_scale(), bounding_box=(self.psf_z_box_size.value(), self.psf_yx_box_size.value(), self.psf_yx_box_size.value()))
@@ -650,64 +652,82 @@ class PsfAnalysis(QWidget):
                 self.extract_psfs.setEnabled(True)
                 self.progressbar.reset()
 
-        channel_layers = self.image_selection.get_selected_as_layers()
-        point_data = self._get_point_data()
-        img_data = self.image_selection.get_images()[0].data
-        if img_data is None:
-            return
+        selected_image_layers = self.image_selection.get_selected_as_dict()
+        point_data = self._get_points_as_dict()
+        matched = {}
+        for key, points in point_data.items():
+            # Extract the wavelength number from the key (e.g. 668 from '668λ | Estimated Beads')
+            match = re.search(r'(\d+)λ', key)
+            if not match:
+                continue
+            wavelength = int(match.group(1))
 
-        channel_points = self._get_point_data()[0]
-        if channel_points is None:
-            return
+            # Find an image layer with matching EmissionWavelength
+            for name, image_layer in selected_image_layers.items():
+                emission = image_layer.metadata.get("EmissionWavelength")
+                if emission == wavelength:
+                    matched[key] = {"points": points, "image_layer": image_layer}
+                    break
 
-        print(f"Point data: {len(channel_points)} points | Img shape: {img_data.shape}")
-        self._setup_progressbar(channel_points)
 
-        analyzer_settings = {
-            "wavelength_color": self.color_from_emission_wavelength(),
-        }
+        print(f"Matched: {matched}")
+        for points, image_layer in matched.values():
+            channel_image = image_layer.data
+            channel_points = points
+            print(f"Analyzing: {image_layer} | Points: {channel_points.shape}")
+            if channel_image is None:
+                return
 
-        analyzer = Analyzer(parameters=PSFAnalysisInputs(
-            microscope=self._get_microscope(),
-            magnification=self.magnification.value(),
-            na=self.na.value(),
-            spacing=self._get_spacing(),
-            patch_size=self._get_patch_size(),
-            name=self.image_selection.get_image_name(),
-            img_data=img_data,
-            point_data=channel_points,
-            dpi=int(self.summary_figure_dpi.currentText()),
-            date=datetime(*self.date.date().getDate()).strftime("%Y-%m-%d"),
-            version=version("psf_analysis_CFIM")
-        ),
-            settings=analyzer_settings
-        )
+            if channel_points is None:
+                return
 
-        @thread_worker(progress={"total": len(channel_points)}, worker_class=GeneratorWorker)
-        def measure():
+            self._setup_progressbar(channel_points)
 
-            yield from analyzer
+            analyzer_settings = {
+                "wavelength_color": self.color_from_emission_wavelength(),
+            }
 
-            self.results = analyzer.get_results()
-            measurement_stack, measurement_scale = analyzer.get_summary_figure_stack(
-                bead_img_scale=self.get_scale(),
-                bead_img_shape=self.viewer.layers[
-                    self.image_selection.get_image_name()
-                ].data.shape,
+            analyzer = Analyzer(parameters=PSFAnalysisInputs(
+                microscope=self._get_microscope(),
+                magnification=self.magnification.value(),
+                na=self.na.value(),
+                spacing=self._get_spacing(),
+                patch_size=self._get_patch_size(),
+                name=self.layer,
+                img_data=channel_image,
+                point_data=channel_points,
+                dpi=int(self.summary_figure_dpi.currentText()),
+                date=datetime(*self.date.date().getDate()).strftime("%Y-%m-%d"),
+                version=version("psf_analysis_CFIM")
+            ),
+                settings=analyzer_settings
             )
-            if measurement_stack is not None:
-                return measurement_stack, measurement_scale
 
-        worker: GeneratorWorker = measure()
+            @thread_worker(progress={"total": len(channel_points)}, worker_class=GeneratorWorker)
+            def measure():
 
-        worker.yielded.connect(_update_progress)
-        worker.returned.connect(_on_done)
-        worker.aborted.connect(_reset_state)
-        worker.errored.connect(_reset_state)
-        worker.start()
+                yield from analyzer
 
-        self.extract_psfs.setEnabled(False)
-        self.cancel.setEnabled(True)
+                self.results = analyzer.get_results()
+                measurement_stack, measurement_scale = analyzer.get_summary_figure_stack(
+                    bead_img_scale=self.get_scale(),
+                    bead_img_shape=self.viewer.layers[
+                        self.image_selection.get_image_name()
+                    ].data.shape,
+                )
+                if measurement_stack is not None:
+                    return measurement_stack, measurement_scale
+
+            worker: GeneratorWorker = measure()
+
+            worker.yielded.connect(_update_progress)
+            worker.returned.connect(_on_done)
+            worker.aborted.connect(_reset_state)
+            worker.errored.connect(_reset_state)
+            worker.start()
+
+            self.extract_psfs.setEnabled(False)
+            self.cancel.setEnabled(True)
 
     def color_from_emission_wavelength(self):
         """
@@ -761,13 +781,13 @@ class PsfAnalysis(QWidget):
         else:
             return basename(img_layer.source.path)
 
-    def _get_point_data(self):
+    def _get_points_as_dict(self):
         point_names = self.point_dropdown.get_selected()
-        point_layers = []
+        point_layers = {}
         print(f"Point names: {point_names}")
         for layer in self.viewer.layers:
             if str(layer) in point_names:
-                point_layers.append(layer.data)
+                point_layers[str(layer)] = layer.data
         if point_layers is None:
             show_info(
                 "Please add a point-layer and annotate the beads you "
@@ -778,7 +798,7 @@ class PsfAnalysis(QWidget):
             return point_layers
 
     def _get_current_img_layers(self):
-        img_layers = self.image_selection.get_selected_as_layers()
+        img_layers = self.image_selection.get_selected_as_list()
         return img_layers
 
     def _get_current_img_data(self):
