@@ -24,6 +24,7 @@ class CalibratedImage(BaseModel):
 # TODO: Make Calibrated3DImage.mean() method
 class Calibrated3DImage(CalibratedImage):
     offset: Tuple[int, int, int] = (0,) * 3
+    spacing: Tuple[PositiveFloat, PositiveFloat, PositiveFloat]
 
     @field_validator("data")
     def check_ndims(data: ArrayLike):

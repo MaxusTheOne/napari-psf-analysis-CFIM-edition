@@ -107,6 +107,14 @@ class Analyzer:
         """Return the color of the wavelength."""
         return self._wavelength_color
 
+    def get_centroids(self):
+        """Return the centroids of the beads."""
+        centroids = []
+        for i in range(len(self._results["x_mu"])):
+            centroids.append((int(self._results["z_mu"][i]), int(self._results["y_mu"][i]), int(self._results["x_mu"][i])))
+        return centroids
+
+
     def get_raw_beads(self):
         """Return the raw data of the beads before analysis."""
         return self._beads
