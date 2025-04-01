@@ -444,20 +444,27 @@ class PSFRenderEngine:
         if centroid:
             self._add_principal_components_annotons(centroid) # Adds axes annotation next to the ellipsoid figure, from something from the fit idk.
 
-    def _add_color_ellipsoids(self):
+    def _add_color_ellipsoids(self, channel_offset_dict: dict = None):
         self._configure_ticks_and_bounds(aspect_override=(1.0, 1.0, 1.0))
         self._ax_3d.set_xlim(-1500, 1500)
         self._ax_3d.set_ylim(-1500, 1500)
         self._ax_3d.set_zlim(-1500, 1500)
 
         for key, value in enumerate(self.channels):
-            print(f"Dev | key: {key}, value: {value}")
+
             channel_dict = self.channels[value]
             zyx_fwhm = channel_dict.get("zyx")
             color = channel_dict["color"]
-            offset = (key*10000, key*10000, key*10000) # Arbitrary offset to separate ellipsoids
+            if channel_offset_dict:
+                offset = channel_offset_dict.get(value, (0, 0, 0))
+            else:
+                offset = (0, 0, 0)
 
-            self._add_zyx_ellipsoid(zyx_fwhm, color, offset)
+            if offset == (0, 0, 0):
+                print(f"Found no offset for channel {value}")
+
+            print(f"Dev | Adding ellipsoid for channel {value} with offset {offset}")
+            self._add_zyx_ellipsoid(zyx_fwhm, color, offset= offset)
 
     def _add_axis_aligned_ellipsoid(self):
         from psf_analysis_CFIM.psf_analysis.utils import sigma
@@ -544,24 +551,31 @@ class PSFRenderEngine:
             linestyles="--",
         )
 
-    def _get_ellipsoid(self, covariance: ArrayLike, spacing: Tuple[float, float, float],
-                       offset: Tuple[float, float, float] = (0, 0, 0)):
-        # Generate ellipsoid coordinates
+    def _get_ellipsoid(self, covariance, spacing, offset=(0, 0, 0)):
+        # Generate unit sphere coordinates.
         u = np.linspace(0, 2 * np.pi, 30)
         v = np.linspace(0, np.pi, 30)
         x = np.outer(np.cos(u), np.sin(v))
         y = np.outer(np.sin(u), np.sin(v))
         z = np.outer(np.ones_like(u), np.cos(v))
-        # Adjust the covariance as before
+
+        # Adjust covariance.
         cov_ = covariance / 2 * np.sqrt(2 * np.log(2))
-        # Use tensordot to multiply cov_ and avoid shape mismatches
         stack_xyz = np.stack((x, y, z), 0)
         xyz = np.tensordot(cov_, stack_xyz, axes=([1], [0]))
-        # Reshape and add the offset bias for the shifted coordinates
-        bias = np.array(offset).reshape(3, 1, 1)
-        x_new, y_new, z_new = (xyz + bias).reshape(3, *x.shape)
-        # Return the ellipsoid taking spacing into account
-        return x_new / spacing[2], y_new / spacing[1], z_new / spacing[0]
+        x_new, y_new, z_new = xyz.reshape(3, *x.shape)
+
+        # Scale by spacing
+        x_new = x_new / spacing[2]
+        y_new = y_new / spacing[1]
+        z_new = z_new / spacing[0]
+
+        # Apply the offset
+        x_new = x_new + offset[2]
+        y_new = y_new + offset[1]
+        z_new = z_new + offset[0]
+
+        return x_new, y_new, z_new
 
     def _add_zyx_ellipsoid(self, zyx_fwhm:tuple, color: str = "navy", offset: Tuple[float, float, float] = (0, 0, 0)):
         from psf_analysis_CFIM.psf_analysis.utils import sigma
@@ -578,10 +592,10 @@ class PSFRenderEngine:
             covariance=covariance, spacing=self.psf_image.spacing, offset=offset
         )
         self._ax_3d.plot_surface(
-            *cv_ell, rstride=1, cstride=1, color=color, antialiased=True, alpha=0.15
+            *cv_ell, rstride=2, cstride=2, color=color, antialiased=True, alpha=1
         )
         self._ax_3d.plot_wireframe(
-            *cv_ell, rstride=4, cstride=4, color=color, antialiased=True, alpha=0.25
+            *cv_ell, rstride=3, cstride=3, color=color, antialiased=True, alpha=0.5
         )
 
 
@@ -699,14 +713,14 @@ class PSFRenderEngine:
         plt.close(self._figure)
         return image
 
-    def render_multi_channel_summary(self):
+    def render_multi_channel_summary(self, channel_offset_dict: dict):
         """
             Renders a summary image with an ellipsoid for each color channel.
             Only contains the ellipsoids. No projections or annotations.
         """
         self._figure = plt.figure(figsize=(10, 10), dpi=150)
         self._ax_3d = self._figure.add_subplot(111, projection="3d")
-        self._add_color_ellipsoids()
+        self._add_color_ellipsoids(channel_offset_dict=channel_offset_dict)
         return self._fig_to_image()
 
 
