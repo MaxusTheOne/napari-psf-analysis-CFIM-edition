@@ -438,7 +438,7 @@ class PSFRenderEngine:
         if not self._has_nan_fwhm():
             self._add_axis_aligned_ellipsoid() # Adds a grey ellipsoid from the fwhm of yx and z fits
 
-        # self._add_zyx_ellipsoid() # Adds a blue ellipsoid from covariance
+        self._add_zyx_ellipsoid() # Adds a blue ellipsoid from covariance
         self._ax_3d_text.set_xlim(0, 100)
         self._ax_3d_text.set_ylim(0, 100)
         if centroid:
@@ -446,9 +446,6 @@ class PSFRenderEngine:
 
     def _add_color_ellipsoids(self, channel_offset_dict: dict = None):
         self._configure_ticks_and_bounds(aspect_override=(1.0, 1.0, 1.0))
-        self._ax_3d.set_xlim(-1500, 1500)
-        self._ax_3d.set_ylim(-1500, 1500)
-        self._ax_3d.set_zlim(-1500, 1500)
 
         for key, value in enumerate(self.channels):
 
@@ -464,21 +461,13 @@ class PSFRenderEngine:
                 print(f"Found no offset for channel {value}")
 
             print(f"Dev | Adding ellipsoid for channel {value} with offset {offset}")
-            self._add_zyx_ellipsoid(zyx_fwhm, color, offset= offset)
+            self._add_fwhm_ellipsoid(zyx_fwhm, color, offset= offset)
 
     def _add_axis_aligned_ellipsoid(self):
         from psf_analysis_CFIM.psf_analysis.utils import sigma
 
-        covariance = np.array(
-            [
-                [sigma(self.psf_record.yx_fit.x_fwhm) ** 2, 0, 0],
-                [0, sigma(self.psf_record.yx_fit.y_fwhm) ** 2, 0],
-                [0, 0, sigma(self.psf_record.z_fit.z_fwhm) ** 2],
-            ]
-        )
-        base_ell = self._get_ellipsoid(
-            covariance=covariance,
-            spacing=self.psf_image.spacing,
+        base_ell = self._get_simple_ellipsoid(
+            xy_width=self.psf_record.yx_fit.y_fwhm, z_height=self.psf_record.z_fit.z_fwhm
         )
         self._ax_3d.plot_surface(
             *base_ell, rstride=2, cstride=2, color="grey", antialiased=True, alpha=1
@@ -551,56 +540,56 @@ class PSFRenderEngine:
             linestyles="--",
         )
 
-    def _get_ellipsoid(self, covariance, spacing, offset=(0, 0, 0)):
-        # Generate unit sphere coordinates.
+    def _get_ellipsoid(
+            self, covariance: ArrayLike, spacing: Tuple[float, float, float]
+    ):
+        bias = 0
         u = np.linspace(0, 2 * np.pi, 30)
         v = np.linspace(0, np.pi, 30)
+
         x = np.outer(np.cos(u), np.sin(v))
         y = np.outer(np.sin(u), np.sin(v))
         z = np.outer(np.ones_like(u), np.cos(v))
-
-        # Adjust covariance.
         cov_ = covariance / 2 * np.sqrt(2 * np.log(2))
-        stack_xyz = np.stack((x, y, z), 0)
-        xyz = np.tensordot(cov_, stack_xyz, axes=([1], [0]))
-        x_new, y_new, z_new = xyz.reshape(3, *x.shape)
+        x, y, z = (cov_ @ np.stack((x, y, z), 0).reshape(3, -1) + bias).reshape(
+            3, *x.shape
+        )
+        return x / spacing[2], y / spacing[1], z / spacing[0]
 
-        # Scale by spacing
-        x_new = x_new / spacing[2]
-        y_new = y_new / spacing[1]
-        z_new = z_new / spacing[0]
+    def _get_simple_ellipsoid(self,xy_width: float, z_height: float, resolution: int = 30, offset: Tuple[float, float, float] = (0, 0, 0)):
+        # Compute the half dimensions.
+        a = xy_width / 2  # half width in x
+        b = xy_width / 2  # half width in y
+        c = z_height / 2  # half height in z
 
-        # Apply the offset
-        x_new = x_new + offset[2]
-        y_new = y_new + offset[1]
-        z_new = z_new + offset[0]
+        # Create angular grids.
+        u = np.linspace(0, 2 * np.pi, resolution)
+        v = np.linspace(0, np.pi, resolution)
 
-        return x_new, y_new, z_new
+        # Parametric equations for the ellipsoid.
+        x = a * np.outer(np.cos(u), np.sin(v))
+        y = b * np.outer(np.sin(u), np.sin(v))
+        z = c * np.outer(np.ones_like(u), np.cos(v))
 
-    def _add_zyx_ellipsoid(self, zyx_fwhm:tuple, color: str = "navy", offset: Tuple[float, float, float] = (0, 0, 0)):
+        return x + offset[1], y + offset[1], z + offset[0]
+
+    def _add_fwhm_ellipsoid(self, zyx_fwhm:tuple, color: str = "navy", offset: Tuple[float, float, float] = (0, 0, 0)):
         from psf_analysis_CFIM.psf_analysis.utils import sigma
 
-        covariance = np.array(
-            [
-                [sigma(zyx_fwhm[0]) ** 2, 0, 0],
-                [0, sigma(zyx_fwhm[1]) ** 2, 0],
-                [0, 0, sigma(zyx_fwhm[2]) ** 2],
-            ]
+        ellipsis_calc = self._get_simple_ellipsoid(
+            xy_width=zyx_fwhm[1], z_height=zyx_fwhm[0], offset=offset
         )
-
-        cv_ell = self._get_ellipsoid(
-            covariance=covariance, spacing=self.psf_image.spacing, offset=offset
-        )
+        # The up arrow sign: ↑, the down arrow sign: ↓, the right arrow sign: →, the left arrow sign: ←
         self._ax_3d.plot_surface(
-            *cv_ell, rstride=2, cstride=2, color=color, antialiased=True, alpha=1
+            *ellipsis_calc, rstride=1, cstride=1, color=color, antialiased=True, alpha=0.3
         )
         self._ax_3d.plot_wireframe(
-            *cv_ell, rstride=3, cstride=3, color=color, antialiased=True, alpha=0.5
+            *ellipsis_calc, rstride=4, cstride=4, color=color, antialiased=True, alpha=0.2
         )
 
 
         self._ax_3d.contour(
-            *cv_ell,
+            *ellipsis_calc,
             zdir="z",
             offset=self._ax_3d.get_zlim()[0],
             colors=color,
@@ -610,7 +599,7 @@ class PSFRenderEngine:
             zorder=0,
         )
         self._ax_3d.contour(
-            *cv_ell,
+            *ellipsis_calc,
             zdir="y",
             offset=self._ax_3d.get_ylim()[1],
             colors=color,
@@ -620,7 +609,7 @@ class PSFRenderEngine:
             zorder=0,
         )
         self._ax_3d.contour(
-            *cv_ell,
+            *ellipsis_calc,
             zdir="x",
             offset=self._ax_3d.get_xlim()[0],
             colors=color,
@@ -630,9 +619,63 @@ class PSFRenderEngine:
             zorder=0,
         )
 
+
+    def _add_zyx_ellipsoid(self):
+        fit = self.psf_record.zyx_fit
+        covariance = np.array(
+            [
+                [fit.zyx_cxx, fit.zyx_cyx, fit.zyx_czx],
+                [fit.zyx_cyx, fit.zyx_cyy, fit.zyx_czy],
+                [fit.zyx_czx, fit.zyx_czy, fit.zyx_czz],
+            ]
+        )
+
+        cv_ell = self._get_ellipsoid(
+            covariance=covariance, spacing=self.psf_image.spacing
+        )
+        self._ax_3d.plot_surface(
+            *cv_ell, rstride=1, cstride=1, color="navy", antialiased=True, alpha=0.15
+        )
+        self._ax_3d.plot_wireframe(
+            *cv_ell, rstride=4, cstride=4, color="navy", antialiased=True, alpha=0.25
+        )
+
+
+        self._ax_3d.contour(
+            *cv_ell,
+            zdir="z",
+            offset=self._ax_3d.get_zlim()[0],
+            colors="navy",
+            levels=1,
+            vmin=-1,
+            vmax=1,
+            zorder=0,
+        )
+        self._ax_3d.contour(
+            *cv_ell,
+            zdir="y",
+            offset=self._ax_3d.get_ylim()[1],
+            colors="navy",
+            levels=1,
+            vmin=-1,
+            vmax=1,
+            zorder=0,
+        )
+        self._ax_3d.contour(
+            *cv_ell,
+            zdir="x",
+            offset=self._ax_3d.get_xlim()[0],
+            colors="navy",
+            levels=1,
+            vmin=-1,
+            vmax=1,
+            zorder=0,
+        )
+
     def _configure_ticks_and_bounds(self, aspect_override: Tuple[float, float, float] = None):
-        labels_list = [-1000, -500, 0, 500, 1000]
+        labels_list = [-1000, -750, -500, -250, 0, 250, 500, 750, 1000]
         if aspect_override:
+            print(f"Dev | Aspect override: {aspect_override}")
             self._ax_3d.set_box_aspect(aspect_override)
         else:
             self._ax_3d.set_box_aspect((1.0, 1.0, 4.0 / 3.0))
@@ -644,15 +687,16 @@ class PSFRenderEngine:
         self._ax_3d.set_yticklabels(
             labels_list, verticalalignment="bottom", horizontalalignment="left"
         )
+
         self._ax_3d.set_zticks(labels_list)
         self._ax_3d.set_zticklabels(
             labels_list,
             verticalalignment="top",
             horizontalalignment="left",
         )
-        self._ax_3d.set_xlim(-1000, 1000)
-        self._ax_3d.set_ylim(-1000, 1000)
-        self._ax_3d.set_zlim(-1200, 1200)
+        self._ax_3d.set_xlim(-800, 800)
+        self._ax_3d.set_ylim(-800, 800)
+        self._ax_3d.set_zlim(-1100, 1100)
 
     def _add_principal_components_annotons(self,centroid):
 
@@ -718,9 +762,10 @@ class PSFRenderEngine:
             Renders a summary image with an ellipsoid for each color channel.
             Only contains the ellipsoids. No projections or annotations.
         """
-        self._figure = plt.figure(figsize=(10, 10), dpi=150)
+        self._figure = plt.figure(figsize=(10, 10), dpi=150, layout="constrained") # TODO:  use dpi from input
         self._ax_3d = self._figure.add_subplot(111, projection="3d")
         self._add_color_ellipsoids(channel_offset_dict=channel_offset_dict)
+        print(f"Dev | Figure: {self._figure}")
         return self._fig_to_image()
 
 
@@ -779,4 +824,4 @@ class PSF:
         }
 
     def get_fwhm(self):
-        return self.psf_record.yx_fit.x_fwhm, self.psf_record.yx_fit.y_fwhm, self.psf_record.z_fit.z_fwhm
+        return self.psf_record.z_fit.z_fwhm,  self.psf_record.yx_fit.y_fwhm, self.psf_record.yx_fit.x_fwhm

@@ -2,7 +2,7 @@
 
 You can install this package using one of the following options:
 ```bash
-  pip install psf-analysis-CFIM
+  pip install psf-analysis-CFIM -U
 ```
 For the latest stable version (recommended)
 

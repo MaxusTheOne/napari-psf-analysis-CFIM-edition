@@ -161,7 +161,7 @@ class PsfAnalysis(QWidget):
         if os.getenv("PSF_ANALYSIS_CFIM_DEBUG") == "1":
             print(f"Main widget | Debug")
             self._debug = True
-            self._debug_dict["bead_collection"] = True
+            self._debug_dict["bead_collection"] = False
             debug = global_vars.debug_instance
             debug.set_PSFAnalysis_instance(self)
 
