@@ -445,7 +445,7 @@ class PSFRenderEngine:
             self._add_principal_components_annotons(centroid) # Adds axes annotation next to the ellipsoid figure, from something from the fit idk.
 
     def _add_color_ellipsoids(self, channel_offset_dict: dict = None):
-        self._configure_ticks_and_bounds(aspect_override=(1.0, 1.0, 1.0))
+        self._configure_ticks_and_bounds()
 
         for key, value in enumerate(self.channels):
 
@@ -762,7 +762,7 @@ class PSFRenderEngine:
             Renders a summary image with an ellipsoid for each color channel.
             Only contains the ellipsoids. No projections or annotations.
         """
-        self._figure = plt.figure(figsize=(10, 10), dpi=150, layout="constrained") # TODO:  use dpi from input
+        self._figure = plt.figure(figsize=(10, 10), dpi=150) # TODO:  use dpi from input, might need to be dpi / 2
         self._ax_3d = self._figure.add_subplot(111, projection="3d")
         self._add_color_ellipsoids(channel_offset_dict=channel_offset_dict)
         print(f"Dev | Figure: {self._figure}")
