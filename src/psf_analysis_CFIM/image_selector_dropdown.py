@@ -468,8 +468,6 @@ class ImageSelectionDialog(QDialog):
         image_layers = [image for image, cb in self.checkboxes.items()]
         selected = [cb.isChecked() for cb in self.checkboxes.values()]
 
-        print(f"image_layers: {image_layers} | cb items: {self.checkboxes.items()} | colormaps: {colormaps}")
-
 
         for i in range(len(image_layers)):
             try:

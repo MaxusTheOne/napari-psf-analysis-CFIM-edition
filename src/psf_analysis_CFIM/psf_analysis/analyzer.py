@@ -19,7 +19,9 @@ class Analyzer:
     def __init__(self, parameters: PSFAnalysisInputs, settings=None):
         if settings is None:
             settings = {"wavelength_color": "black",
-                        "wavelength": 0}
+                        "wavelength": "",
+                        "excitation": "",
+                        "airy_unit": "",}
         self._parameters = parameters
         bead_extractor = BeadExtractor(
             image=Calibrated3DImage(
@@ -28,6 +30,8 @@ class Analyzer:
             patch_size=parameters.patch_size,
         )
         self._bead_margins = bead_extractor.get_margins()
+        self._airy_unit = settings["airy_unit"]
+        self._excitation = settings["excitation"]
         self._wavelength = settings["wavelength"]
         self._wavelength_color = settings["wavelength_color"]
         self._invalid_beads_index = []
@@ -247,6 +251,9 @@ class Analyzer:
                 "Microscope": self._results["microscope"],
                 "Magnification": self._results["mag"],
                 "NA": self._results["NA"],
+                "Emission": self._wavelength,
+                "Excitation": self._excitation,
+                "AiryUnit": self._airy_unit,
                 "Amplitude_1D_Z": self._results["z_amp"],
                 "Amplitude_2D_XY": self._results["yx_amp"],
                 "Amplitude_3D_XYZ": self._results["zyx_amp"],

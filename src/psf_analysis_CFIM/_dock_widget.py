@@ -117,7 +117,7 @@ class PsfAnalysis(QWidget):
         self._debug = False
         self._debug_progress = False
         self._debug_dict = {}
-        self.summary_figs = None
+        self.summary_figs: dict = {}
         self.results = []
         self.warnings = []
         self.errors = []
@@ -621,6 +621,8 @@ class PsfAnalysis(QWidget):
                 combined_stack = np.concatenate((averaged_summary_image_expanded, measurement_stack), axis=0)
                 display_measurement_stack(combined_stack, measurement_scale, figure_title)
 
+                self.summary_figs[channel_wavelength] = measurement_stack
+
                 """
                     If we have all color channels done, we create a combined summary image.
                     
@@ -805,8 +807,10 @@ class PsfAnalysis(QWidget):
 
             analyzer_settings = {  # TODO: Color needs to be gotten from the image manager
                 "wavelength": int(image_layer.metadata["EmissionWavelength"]),
+                "excitation": int(image_layer.metadata["ExcitationWavelength"]),
                 "wavelength_color": self.color_from_emission_wavelength(
                     int(image_layer.metadata["EmissionWavelength"])),
+                "airy_unit": self.airy_unit.value(),
             }
 
             analyzer = Analyzer(parameters=PSFAnalysisInputs(
@@ -1103,83 +1107,93 @@ class PsfAnalysis(QWidget):
             show_info("Please select the 'Analyzed Beads' layer.")
 
     def save_measurements(self):
-        if self.results is None:
+        if not self.results:
             show_info("No results to save.")
             return
-        out_path = self.settings_Widget.settings["output_folder"]
+        out_path = pathlib.Path(self.settings_Widget.settings["output_folder"])
         os.makedirs(out_path, exist_ok=True)
-        for i, row in self.results.iterrows():
-            save_path = join(out_path, basename(row["PSF_path"]))
-            imsave(save_path, self.summary_figs[i])
+        for psf_results in self.results:
+            print(f"Dev | Results: {psf_results} \nType: {psf_results} | Len: {len(psf_results)}")
+            formatted_bead = {
+                "z_fwhm": psf_results["FWHM_1D_Z"].mean(),
+                "y_fwhm": psf_results["FWHM_2D_Y"].mean(),
+                "x_fwhm": psf_results["FWHM_2D_X"].mean(),
+            }
+            variation = {
+                "z_fwhm_max": psf_results["FWHM_1D_Z"].max(),
+                "z_fwhm_min": psf_results["FWHM_1D_Z"].min(),
+                "y_fwhm_max": psf_results["FWHM_2D_Y"].max(),
+                "y_fwhm_min": psf_results["FWHM_2D_Y"].min(),
+                "x_fwhm_max": psf_results["FWHM_2D_X"].max(),
+                "x_fwhm_min": psf_results["FWHM_2D_X"].min(),
+            }
 
-        formatted_bead = {
-            "z_fwhm": self.results["FWHM_1D_Z"].mean(),
-            "y_fwhm": self.results["FWHM_2D_Y"].mean(),
-            "x_fwhm": self.results["FWHM_2D_X"].mean(),
-        }
-        self.report_widget.add_bead_stats(formatted_bead, title="Average from measurements")
-        variation = {
-            "z_fwhm_max": self.results["FWHM_1D_Z"].max(),
-            "z_fwhm_min": self.results["FWHM_1D_Z"].min(),
-            "y_fwhm_max": self.results["FWHM_2D_Y"].max(),
-            "y_fwhm_min": self.results["FWHM_2D_Y"].min(),
-            "x_fwhm_max": self.results["FWHM_2D_X"].max(),
-            "x_fwhm_min": self.results["FWHM_2D_X"].min(),
-        }
-        self.report_widget.set_bead_variation(variation)
+            if psf_results["Emission"].empty:
+                psf_results["Emission"] = self.emission.value()
 
-        if self.temperature.text() != "":
-            self.results["Temperature"] = self.temperature.value()
+            wavelength_id = psf_results["Emission"][0] # Note: Change when we use UUID
 
-        if self.airy_unit.text() != "":
-            self.results["AiryUnit"] = self.airy_unit.value()
+            self.report_widget.add_bead_stats(formatted_bead, data_type="Average from measurements", channel=wavelength_id)
+            self.report_widget.set_bead_variation(variation, channel=wavelength_id)
 
-        if self.bead_size.text() != "":
-            self.results["BeadSize"] = self.bead_size.value()
+            for i, row in psf_results.iterrows():
+                save_path = os.path.join(out_path, basename(row["PSF_path"]))
+                sanitized_path = sanitize_path(save_path)
+                figure = self.summary_figs[wavelength_id][i]
+                imsave(sanitized_path, figure)
 
-        if self.bead_supplier.text() != "":
-            self.results["BeadSupplier"] = self.bead_supplier.text()
+            if self.temperature.text() != "":
+                psf_results["Temperature"] = self.temperature.value()
 
-        if self.mounting_medium.text() != "":
-            self.results["MountingMedium"] = self.mounting_medium.text()
+            if psf_results["AiryUnit"].empty:
+                psf_results["AiryUnit"] = self.airy_unit.value()
 
-        if self.objective_id.text() != "":
-            self.results["Objective_id"] = self.objective_id.text()
+            if self.bead_size.text() != "":
+                psf_results["BeadSize"] = self.bead_size.value()
 
-        if self.operator.text() != "":
-            self.results["Operator"] = self.operator.text()
+            if self.bead_supplier.text() != "":
+                psf_results["BeadSupplier"] = self.bead_supplier.text()
 
-        if self.microscope_type.text() != "":
-            self.results["MicroscopeType"] = self.microscope_type.text()
+            if self.mounting_medium.text() != "":
+                psf_results["MountingMedium"] = self.mounting_medium.text()
 
-        if self.excitation.text() != "":
-            self.results["Excitation"] = self.excitation.value()
+            if self.objective_id.text() != "":
+                psf_results["Objective_id"] = self.objective_id.text()
 
-        if self.emission.text() != "":
-            self.results["Emission"] = self.emission.value()
+            if self.operator.text() != "":
+                psf_results["Operator"] = self.operator.text()
 
-        if self.comment.text() != "":
-            self.results["Comment"] = self.comment.text()
+            if self.microscope_type.text() != "":
+                psf_results["MicroscopeType"] = self.microscope_type.text()
 
-        entry = self.results.iloc[0]
-        self.results.to_csv(
-            join(
-                out_path,
-                "PSFMeasurement_"
-                + entry["Date"]
-                + "_"
-                + entry["ImageName"]
-                + "_"
-                + entry["Microscope"]
-                + "_"
-                + str(entry["Magnification"])
-                + "_"
-                + str(entry["NA"])
-                + ".csv",
-            ),
-            index=False,
-        )
-        self.report_widget.create_pdf(path=self.settings_Widget.settings["output_folder"])
+            if psf_results["Excitation"].empty:
+                psf_results["Excitation"] = self.excitation.value()
+
+
+
+            if self.comment.text() != "":
+                psf_results["Comment"] = self.comment.text()
+
+            sanitized_out = sanitize_path(out_path)
+            entry = psf_results.iloc[0]
+            psf_results.to_csv(
+                join(
+                    sanitized_out,
+                    "PSFMeasurement_"
+                    + entry["Date"]
+                    + "_"
+                    + entry["ImageName"]
+                    + "_"
+                    + entry["Microscope"]
+                    + "_"
+                    + str(entry["Magnification"])
+                    + "_"
+                    + str(entry["NA"])
+                    + ".csv",
+                ),
+                index=False,
+            )
+        # self.report_widget.create_pdf(path=self.settings_Widget.settings["output_folder"])
         show_info("Saved results.")
 
 
@@ -1189,3 +1203,16 @@ def _calculate_expected_z_spacing(emission, refractive_index, numerical_aperture
         # Formula: (2 * RI * λ) / NA^2 = expected_bead_z_size (in nm)
     """
     return (2 * refractive_index * emission) / (numerical_aperture ** 2)
+
+def sanitize_path(path):
+    """
+        Removes illegal characters from the path.
+    """
+    # Split the path into its directory and base name
+    dir_part = os.path.dirname(path)
+    base_name = os.path.basename(path)
+    # Sanitize only the filename (remove invalid Windows characters)
+    safe_basename = re.sub(r'[<>:"/|?*]', '', base_name)
+    # Reassemble the safe path using the original directory
+    return os.path.join(dir_part, safe_basename)
+

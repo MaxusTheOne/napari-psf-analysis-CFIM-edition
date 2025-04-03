@@ -55,7 +55,7 @@ class ReportWidget(QWidget):
         self.bead_variation = None
         self.filename = filename
         self.title = title
-        self.bead_data_to_show: list[dict] = []
+        self.bead_data: dict = {}
         self._canvas = None
         self._path = None
         self._output_path = output_path
@@ -70,14 +70,18 @@ class ReportWidget(QWidget):
     def set_title(self, title):
         self.title = title
 
-    def add_bead_stats(self, stats, title="Average bead"):
+    def add_bead_stats(self, stats: dict, data_type="Average bead", channel="None"):
         """
             Add bead stats to the report.
         """
-        bead_stats = {"title": title}
-        for key in self._bead_keys:
-            bead_stats[key] = int(stats[key])
-        self.bead_data_to_show.append(bead_stats)
+        bead_stats = {f"{data_type}": stats}
+        print(f"Dev | channel type: {type(channel)} | data type: {type(data_type)}")
+        if channel in self.bead_data:
+            self.bead_data[channel].update(bead_stats)
+        else:
+            self.bead_data[channel] = bead_stats
+
+
 
     def add_bead_stats_psf(self, stats, title="Average bead"):
         """
@@ -95,12 +99,13 @@ class ReportWidget(QWidget):
         """
         self.bead_variation = bead
 
-    def set_bead_variation(self, stats):
+    def set_bead_variation(self, stats, stats_type="Bead Variation", channel=None):
         """
             Set the bead variation.
         """
         variation_bead = {
-            "title": "Bead Variation",
+            "stats_type": stats_type,
+            "channel": channel,
             "z_fwhm": f"{int(stats["z_fwhm_max"])} - {int(stats["z_fwhm_min"])}",
             "y_fwhm": f"{int(stats["y_fwhm_max"])} - {int(stats["y_fwhm_min"])}",
             "x_fwhm": f"{int(stats["x_fwhm_max"])} - {int(stats["x_fwhm_min"])}",
@@ -156,9 +161,9 @@ class ReportWidget(QWidget):
 
         # Add the bead variation if it exists
         if self.bead_variation:
-            data = self.bead_data_to_show + [self.bead_variation]
+            data = self.bead_data + [self.bead_variation]
         else:
-            data = self.bead_data_to_show
+            data = self.bead_data
 
         # Create table data with header and measurement rows.
         table_data = self.beads_to_schema(data, styles["BodyText"])
