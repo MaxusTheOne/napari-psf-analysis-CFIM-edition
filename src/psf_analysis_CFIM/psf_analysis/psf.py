@@ -1,8 +1,11 @@
 from copy import copy
 from typing import Dict, Tuple
 
+import napari
 import numpy as np
 from matplotlib import pyplot as plt
+from matplotlib.colors import ListedColormap
+from matplotlib.lines import lineStyles
 from matplotlib_scalebar.scalebar import ScaleBar
 from mpl_toolkits.mplot3d.axis3d import Axis
 from numpy._typing import ArrayLike
@@ -438,7 +441,7 @@ class PSFRenderEngine:
         if not self._has_nan_fwhm():
             self._add_axis_aligned_ellipsoid() # Adds a grey ellipsoid from the fwhm of yx and z fits
 
-        # self._add_cov_ellipsoid() # Adds a blue ellipsoid from covariance
+        self._add_cov_ellipsoid() # Adds a blue ellipsoid from covariance
         self._ax_3d_text.set_xlim(0, 100)
         self._ax_3d_text.set_ylim(0, 100)
         # if centroid: # Disabled by request, TODO: Option in settings
@@ -555,7 +558,7 @@ class PSFRenderEngine:
         )
         return x / spacing[2], y / spacing[1], z / spacing[0]
 
-    def _get_simple_ellipsoid(self,xy_width: float, z_height: float, resolution: int = 30, offset: Tuple[float, float, float] = (0, 0, 0)):
+    def _get_simple_ellipsoid(self, xy_width: float, z_height: float, resolution: int = 30, zyx_offset: Tuple[float, float, float] = (0, 0, 0)):
         # Compute the half dimensions.
         a = xy_width / 2  # half width in x
         b = xy_width / 2  # half width in y
@@ -570,15 +573,15 @@ class PSFRenderEngine:
         y = b * np.outer(np.sin(u), np.sin(v))
         z = c * np.outer(np.ones_like(u), np.cos(v))
 
-        return x + offset[1], y + offset[1], z + offset[0]
+        return x + zyx_offset[2], y + zyx_offset[1], z + zyx_offset[0]
 
     def _add_fwhm_ellipsoid(self, zyx_fwhm:tuple, color: str = "navy", offset: Tuple[float, float, float] = (0, 0, 0)):
-        from psf_analysis_CFIM.psf_analysis.utils import sigma
+
 
         ellipsis_calc = self._get_simple_ellipsoid(
-            xy_width=zyx_fwhm[1], z_height=zyx_fwhm[0], offset=offset
+            xy_width=zyx_fwhm[1], z_height=zyx_fwhm[0], zyx_offset=offset
         )
-        # The up arrow sign: ↑, the down arrow sign: ↓, the right arrow sign: →, the left arrow sign: ←
+
         self._ax_3d.plot_surface(
             *ellipsis_calc, rstride=1, cstride=1, color=color, antialiased=True, alpha=0.3
         )
@@ -587,32 +590,83 @@ class PSFRenderEngine:
         )
 
 
+        # Levels give lines equal to n + 1.
+        # The coord system is xyz. Instead of zyx that is used in the rest of the code.
         self._ax_3d.contour(
             *ellipsis_calc,
             zdir="z",
             offset=self._ax_3d.get_zlim()[0],
-            colors=color,
-            levels=1,
+            levels=0,
             vmin=-1,
             vmax=1,
             zorder=0,
+            origin="image",
+
+            colors=color,
+            linestyles="solid"
         )
         self._ax_3d.contour(
             *ellipsis_calc,
             zdir="y",
             offset=self._ax_3d.get_ylim()[1],
-            colors=color,
-            levels=1,
+            levels=0,
             vmin=-1,
             vmax=1,
             zorder=0,
+            origin="image",
+
+            colors=color,
+            linestyles="solid"
+
         )
         self._ax_3d.contour(
             *ellipsis_calc,
             zdir="x",
             offset=self._ax_3d.get_xlim()[0],
+            levels=0,
+            vmin=-1,
+            vmax=1,
+            zorder=0,
+            origin="image",
+
             colors=color,
-            levels=1,
+            linestyles="solid"
+        )
+
+        self._ax_3d.contourf(
+            *ellipsis_calc,
+            zdir="z",
+            offset=self._ax_3d.get_zlim()[0],
+            colors=color,
+            alpha=0.1,
+
+            levels=0,
+            vmin=-1,
+            vmax=1,
+            zorder=0,
+
+        )
+        self._ax_3d.contourf(
+            *ellipsis_calc,
+            zdir="y",
+            offset=self._ax_3d.get_ylim()[1],
+            colors=color,
+            alpha=0.1,
+
+            levels=0,
+            vmin=-1,
+            vmax=1,
+            zorder=0,
+
+        )
+        self._ax_3d.contourf(
+            *ellipsis_calc,
+            zdir="x",
+            offset=self._ax_3d.get_xlim()[0],
+            colors=color,
+            alpha=0.1,
+
+            levels=0,
             vmin=-1,
             vmax=1,
             zorder=0,
@@ -763,8 +817,9 @@ class PSFRenderEngine:
 
         self._figure = plt.figure(figsize=(10, 10), dpi=150) # TODO:  use dpi from input, might need to be dpi / 2
         self._ax_3d = self._figure.add_subplot(111, projection="3d")
+
         # Allocate an additional axes for the distance table.
-        table_ax = self._figure.add_axes([0.0, 0.65, 0.3, 0.3])
+        table_ax = self._figure.add_axes([0.060, 0.725, 0.3, 0.3])
         self.create_distance_table_ax(table_beads, table_ax)
 
         self._add_color_ellipsoids(channel_offset_dict=channel_offset_dict)
@@ -796,16 +851,17 @@ class PSFRenderEngine:
         table = ax.table(cellText=cell_text, rowLabels=keys, colLabels=keys, loc='center')
         table.scale(1, 1.5)
 
-        # Color header cells with the bead's colormap.
+        # Color according to colormap
         cells = table.get_celld()
-        for j, key in enumerate(keys):
-            cell = cells.get((0, j))
-            if cell:
-                cell.set_facecolor(beads[key]["colormap"])
         for i, key in enumerate(keys):
-            cell = cells.get((i + 1, -1))
-            if cell:
-                cell.set_facecolor(beads[key]["colormap"])
+            row_cell = cells.get((0, i))
+            col_cell = cells.get((i + 1, -1))
+            for cell in (row_cell, col_cell):
+                if cell:
+                    cell.set_facecolor(beads[key]["colormap"])
+                    cell.get_text().set_color("white")
+
+
 
         ax.axis('tight')
         ax.axis('off')

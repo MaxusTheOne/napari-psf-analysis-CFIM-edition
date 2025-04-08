@@ -620,7 +620,7 @@ class PsfAnalysis(QWidget):
                 # Combines the summary image from average bead with the summary image stack from the entire psf analysis.
                 averaged_summary_image_expanded = np.expand_dims(averaged_summary_image, axis=0)
                 combined_stack = np.concatenate((averaged_summary_image_expanded, measurement_stack), axis=0)
-                display_measurement_stack(combined_stack, measurement_scale, name=figure_title, metadata={"wavelength": channel_wavelength})
+                self.display_measurement_stack(combined_stack, measurement_scale, name=figure_title, metadata={"wavelength": channel_wavelength})
 
                 self.summary_figs[channel_wavelength] = combined_stack
 
@@ -635,121 +635,14 @@ class PsfAnalysis(QWidget):
 
                 # We check if analysis is done and if we have > 1 channel
                 if self.progressbar.value() == self.progressbar.maximum() and len(channel_zyx_fwhm.keys()) > 1:  # TODO: This could take advantage of the async
-                    if self._debug_dict["bead_collection"]:
-                        _local_debug = True
-                    else:
-                        _local_debug = False
-
-
-
-                    psf_bead_collections = self.filter_bead_matches(channel_beads)
-
-
-
-                    if _local_debug:
-                        print(f"Debug | Putting found bead groups in viewer")
-                        for index, collection in enumerate(psf_bead_collections):
-                            point_group = []
-                            for key in collection.keys():
-                                point_group.append(collection[key])
-                            color = ["red", "green", "blue", "cyan", "magenta", "yellow"][index % 6]
-                            _text = f"Group {index} | {color} | {len(point_group)} points"
-                            _add_points_to_viewer_nm(point_group, _text, color)
-
-                    # Try to calculate a relative coordinate
-                    channel_rel_coords = {wavelength_key: [] for wavelength_key in channel_beads.keys()}
-                    wavelengths = [number for number in channel_beads.keys()]
-
-
-                    for bead_group in psf_bead_collections: # This line gets 1 "group", containing 1 bead per channel
-                        max_zyx = [0, 0, 0]
-                        min_zyx = [0, 0, 0]
-                        # Dev, checking if it's actually a group of points
-                        if not isinstance(bead_group, dict):
-                            print(f"Error | Expected dict | Got: {type(bead_group)}")
-                        for point_key in bead_group: # This line gets the key for 1 point in a group.
-                            point = bead_group[point_key]
-                            if not isinstance(point, tuple):
-                                print(f"Error | Expected tuple | Got: {type(point)}")
-                            for i in range(3):
-                                if point[i] > max_zyx[i]:
-                                    max_zyx[i] = point[i]
-                                if point[i] < min_zyx[i] or min_zyx[i] == 0:
-                                    min_zyx[i] = point[i]
-
-                        middle_point = [(max_zyx[i] + min_zyx[i]) / 2 for i in range(3)]
-                        if _local_debug:
-                            print(f"Max: {max_zyx} | Min: {min_zyx} ->")
-                            print(f"Middle point: {middle_point}")
-                        for point_key in bead_group.keys():
-                            relative_point = [(bead_group[point_key][i] - middle_point[i]) for i in range(3)]
-                            channel_rel_coords[point_key].append(relative_point)
-                            if _local_debug: print(f"  |{point_key}: {bead_group[point_key]} -> {relative_point}")
-
-
-
-                    rel_coords_for_figure = {wavelength_key: (0,0,0) for wavelength_key in wavelengths}
-                    # Finally we, take the average of each wavelength coord.
-                    for wavelength_key in channel_rel_coords.keys():
-                        rel_coords: list[tuple[float,float,float]] = channel_rel_coords[wavelength_key]
-                        rel_coords_for_figure[wavelength_key] = tuple([int(sum([point[i] for point in rel_coords]) / len(rel_coords)) for i in range(3)])
-
-                    render_engine = PSFRenderEngine(psf_image=averaged_bead, channels=channel_zyx_fwhm)
-
-                    table_beads = {wavelength_key: {
-                        "colormap": channel_zyx_fwhm[wavelength_key]["color"],
-                        "bead": rel_coords_for_figure[wavelength_key]
-                    } for wavelength_key in rel_coords_for_figure.keys()}
-                    final_summary_image = render_engine.render_multi_channel_summary(channel_offset_dict=rel_coords_for_figure, table_beads=table_beads)
-                    text = f"Summary of {len(channel_zyx_fwhm)} channels"
-
-                    final_summary_image = np.expand_dims(final_summary_image, axis=0)
-
-                    display_measurement_stack(final_summary_image, measurement_scale, name=text)
-
-
-                    _hide_point_layers()
+                    self.display_final_summary(channel_beads, channel_zyx_fwhm, scale = measurement_scale)
             _reset_state()
 
-        def _add_points_to_viewer_nm(points_nm, name="PSF images", color="red"): # TODO: Throw this in debug
-            scale = self.get_scale()  # returns a tuple (z_scale, y_scale, x_scale)
-            # Convert each point from nm to px by dividing by scale per axis.
-            points_px = [
-                (int(pt[0] / scale[0]), int(pt[1] / scale[1]), int(pt[2] / scale[2]))
-                for pt in points_nm
-            ]
 
-            self.viewer.add_points(
-                points_px,
-                name=name,
-                face_color=color,
-                size=7,
-                opacity=0.7,
-                scale=scale,
-            )
 
-        def display_measurement_stack(averaged_measurement, measurement_scale,name="PSF images",metadata: dict = {}):
-            """Display the averaged measurement stack in the viewer."""
-            default_metadata = {
-                "type": "Summary",
-            }
-            default_metadata.update(metadata)
-            self.viewer.add_image(
-                averaged_measurement,
-                name=name,
-                interpolation2d="bicubic",
-                rgb=True,
-                scale=measurement_scale,
-                metadata= default_metadata,
-            )
-            # Resets napari viewer to 0.0
-            self.viewer.dims.set_point(0, 0)
-            self.viewer.reset_view()
 
-        def _hide_point_layers():
-            for layer in self.viewer.layers:
-                if isinstance(layer, napari.layers.Points):
-                    layer.visible = False
+
+
 
         def _update_progress(return_val):  # TODO: Make this more efficient
             progress = return_val[0]
@@ -853,6 +746,122 @@ class PsfAnalysis(QWidget):
             self.extract_psfs.setEnabled(False)
             self.cancel.setEnabled(True)
 
+    def display_final_summary(self, channel_beads, channel_zyx_fwhm, scale=None):
+        if self._debug_dict["bead_collection"]:
+            _local_debug = True
+        else:
+            _local_debug = False
+
+        psf_bead_collections = self.filter_bead_matches(channel_beads)
+
+        if _local_debug:
+            print(f"Debug | Putting found bead groups in viewer")
+            for index, collection in enumerate(psf_bead_collections):
+                point_group = []
+                for key in collection.keys():
+                    point_group.append(collection[key])
+                color = ["red", "green", "blue", "cyan", "magenta", "yellow"][index % 6]
+                _text = f"Group {index} | {color} | {len(point_group)} points"
+                self._add_points_to_viewer_nm(point_group, _text, color)
+
+        # Try to calculate a relative coordinate
+        channel_rel_coords = {wavelength_key: [] for wavelength_key in channel_beads.keys()}
+        wavelengths = [number for number in channel_beads.keys()]
+
+        for bead_group in psf_bead_collections:  # This line gets 1 "group", containing 1 bead per channel
+            max_zyx = [0, 0, 0]
+            min_zyx = [0, 0, 0]
+            # Dev, checking if it's actually a group of points
+            if not isinstance(bead_group, dict):
+                print(f"Error | Expected dict | Got: {type(bead_group)}")
+            for point_key in bead_group:  # This line gets the key for 1 point in a group.
+                point = bead_group[point_key]
+                if not isinstance(point, tuple):
+                    print(f"Error | Expected tuple | Got: {type(point)}")
+                for i in range(3):
+                    if point[i] > max_zyx[i]:
+                        max_zyx[i] = point[i]
+                    if point[i] < min_zyx[i] or min_zyx[i] == 0:
+                        min_zyx[i] = point[i]
+
+            middle_point = [(max_zyx[i] + min_zyx[i]) / 2 for i in range(3)]
+            if _local_debug:
+                print(f"Max: {max_zyx} | Min: {min_zyx} ->")
+                print(f"Middle point: {middle_point}")
+            for point_key in bead_group.keys():
+                relative_point = [(bead_group[point_key][i] - middle_point[i]) for i in range(3)]
+                channel_rel_coords[point_key].append(relative_point)
+                if _local_debug: print(f"  |{point_key}: {bead_group[point_key]} -> {relative_point}")
+
+        rel_coords_for_figure = {wavelength_key: (0, 0, 0) for wavelength_key in wavelengths}
+        # Finally we, take the average of each wavelength coord.
+        for wavelength_key in channel_rel_coords.keys():
+            rel_coords: list[tuple[float, float, float]] = channel_rel_coords[wavelength_key]
+            if len(rel_coords) == 0:
+                print(f"Error | Missing relative coords: {channel_rel_coords}")
+                break
+            rel_coords_for_figure[wavelength_key] = tuple(
+                [int(sum([point[i] for point in rel_coords]) / len(rel_coords)) for i in range(3)])
+
+        render_engine = PSFRenderEngine(channels=channel_zyx_fwhm)
+
+        table_beads = {wavelength_key: {
+            "colormap": channel_zyx_fwhm[wavelength_key]["color"],
+            "bead": rel_coords_for_figure[wavelength_key]
+        } for wavelength_key in rel_coords_for_figure.keys()}
+        final_summary_image = render_engine.render_multi_channel_summary(channel_offset_dict=rel_coords_for_figure,
+                                                                         table_beads=table_beads)
+        text = f"Summary of {len(channel_zyx_fwhm)} channels"
+
+        final_summary_image = np.expand_dims(final_summary_image, axis=0)
+
+        self.display_measurement_stack(final_summary_image, name=text, measurement_scale=scale)
+
+        self._hide_point_layers()
+
+    def display_measurement_stack(self, averaged_measurement, measurement_scale= None, name="PSF images", metadata: dict = {}):
+        """Display the averaged measurement stack in the viewer."""
+        default_metadata = {
+            "type": "Summary",
+        }
+        default_metadata.update(metadata)
+        if measurement_scale is None:
+            measurement_scale = self.get_scale()
+
+        self.viewer.add_image(
+            averaged_measurement,
+            name=name,
+            interpolation2d="bicubic",
+            rgb=True,
+            scale=measurement_scale,
+            metadata=default_metadata,
+        )
+        # Resets napari viewer to 0.0
+        self.viewer.dims.set_point(0, 0)
+        self.viewer.reset_view()
+
+    def _hide_point_layers(self):
+        for layer in self.viewer.layers:
+            if isinstance(layer, napari.layers.Points):
+                layer.visible = False
+
+    def _add_points_to_viewer_nm(self, points_nm, name="PSF images", color="red"):  # TODO: Throw this in debug
+        scale = self.get_scale()  # returns a tuple (z_scale, y_scale, x_scale)
+        # Convert each point from nm to px by dividing by scale per axis.
+        points_px = [
+            (int(pt[0] / scale[0]), int(pt[1] / scale[1]), int(pt[2] / scale[2]))
+            for pt in points_nm
+        ]
+
+        self.viewer.add_points(
+            points_px,
+            name=name,
+            face_color=color,
+            size=7,
+            opacity=0.7,
+            scale=scale,
+        )
+
     def color_from_emission_wavelength(self, wavelength: int = None):
         """
             Returns a color based on the emission wavelength in nm.
@@ -889,7 +898,7 @@ class PsfAnalysis(QWidget):
         """
         # Convert psf_box into a single max distance threshold (Euclidean norm of the psf_box dimensions).
         psf_box = self.get_bounding_box_nm()
-        max_dist = math.sqrt(sum(dim ** 2 for dim in psf_box)) / 4 # TODO: Make this a setting
+        max_dist = math.sqrt(sum(dim ** 2 for dim in psf_box)) / 3 # TODO: Make this a setting
 
         # Choose the anchor channel: the one with the fewest beads.
         anchor_channel = min(bead_dict, key=lambda ch: len(bead_dict[ch]))
@@ -940,7 +949,8 @@ class PsfAnalysis(QWidget):
                     if ch != anchor_channel:
                         beads_available[ch].remove(group[ch])
                 groups.append(group)
-
+        if len(groups) == 0:
+            print(f"Warning: No groups found. From: {bead_dict}")
         return groups
 
     def _validate_image(self):
@@ -1069,7 +1079,7 @@ class PsfAnalysis(QWidget):
         return 0
 
     def get_scale(self):
-        return self.get_current_img_layer().scale
+        return self.image_manager.get_image(0).scale
 
     def get_bounding_box_px(self):
         """

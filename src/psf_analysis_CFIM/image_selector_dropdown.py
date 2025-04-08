@@ -7,9 +7,8 @@ import numpy as np
 from IPython.terminal.shortcuts.auto_suggest import accept
 from PyQt5.QtCore import QSettings, Qt, pyqtSlot
 from PyQt5.QtGui import QPalette, QImage, QPixmap
-from PyQt5.QtWidgets import QHBoxLayout, QWidget, QComboBox, QPushButton, QApplication, QTabWidget, QLabel, QMessageBox, \
+from qtpy.QtWidgets import QHBoxLayout, QWidget, QComboBox, QPushButton, QApplication, QTabWidget, QLabel, QMessageBox, \
     QGroupBox, QDialog, QVBoxLayout, QDialogButtonBox, QCheckBox, QFormLayout, QLineEdit, QGridLayout
-from six import reraise
 
 from psf_analysis_CFIM.library_workarounds.MultiKeyDict import MultiKeyDict
 from psf_analysis_CFIM.library_workarounds.QLineEditWithColormapBg import QLineEditWithColormap
@@ -93,7 +92,13 @@ class ImageInteractionManager(QWidget):
     def get_image(self, *args):
         if type(args[0]) is int:
             index = args[0]
-            return self._viewer.layers[index]
+            layer = self._viewer.layers[index]
+            if index >= len(self._viewer.layers):
+                raise ValueError(f"Index out of range | {index}")
+
+            if not isinstance(layer, napari.layers.Image):
+                return self.get_image(index + 1)
+            return layer
         elif type(args[0]) is str:
             name = args[0]
             return self._viewer.layers[name]
