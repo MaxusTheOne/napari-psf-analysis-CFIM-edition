@@ -438,11 +438,11 @@ class PSFRenderEngine:
         if not self._has_nan_fwhm():
             self._add_axis_aligned_ellipsoid() # Adds a grey ellipsoid from the fwhm of yx and z fits
 
-        self._add_zyx_ellipsoid() # Adds a blue ellipsoid from covariance
+        # self._add_cov_ellipsoid() # Adds a blue ellipsoid from covariance
         self._ax_3d_text.set_xlim(0, 100)
         self._ax_3d_text.set_ylim(0, 100)
-        if centroid:
-            self._add_principal_components_annotons(centroid) # Adds axes annotation next to the ellipsoid figure, from something from the fit idk.
+        # if centroid: # Disabled by request, TODO: Option in settings
+        #     self._add_principal_components_annotons(centroid)
 
     def _add_color_ellipsoids(self, channel_offset_dict: dict = None):
         self._configure_ticks_and_bounds()
@@ -460,7 +460,6 @@ class PSFRenderEngine:
             if offset == (0, 0, 0):
                 print(f"Found no offset for channel {value}")
 
-            print(f"Dev | Adding ellipsoid for channel {value} with offset {offset}")
             self._add_fwhm_ellipsoid(zyx_fwhm, color, offset= offset)
 
     def _add_axis_aligned_ellipsoid(self):
@@ -620,7 +619,7 @@ class PSFRenderEngine:
         )
 
 
-    def _add_zyx_ellipsoid(self):
+    def _add_cov_ellipsoid(self):
         fit = self.psf_record.zyx_fit
         covariance = np.array(
             [
@@ -675,7 +674,6 @@ class PSFRenderEngine:
     def _configure_ticks_and_bounds(self, aspect_override: Tuple[float, float, float] = None):
         labels_list = [-1000, -750, -500, -250, 0, 250, 500, 750, 1000]
         if aspect_override:
-            print(f"Dev | Aspect override: {aspect_override}")
             self._ax_3d.set_box_aspect(aspect_override)
         else:
             self._ax_3d.set_box_aspect((1.0, 1.0, 4.0 / 3.0))
@@ -757,16 +755,60 @@ class PSFRenderEngine:
         plt.close(self._figure)
         return image
 
-    def render_multi_channel_summary(self, channel_offset_dict: dict):
+    def render_multi_channel_summary(self, channel_offset_dict: dict, table_beads:dict):
         """
             Renders a summary image with an ellipsoid for each color channel.
             Only contains the ellipsoids. No projections or annotations.
         """
+
         self._figure = plt.figure(figsize=(10, 10), dpi=150) # TODO:  use dpi from input, might need to be dpi / 2
         self._ax_3d = self._figure.add_subplot(111, projection="3d")
+        # Allocate an additional axes for the distance table.
+        table_ax = self._figure.add_axes([0.0, 0.65, 0.3, 0.3])
+        self.create_distance_table_ax(table_beads, table_ax)
+
         self._add_color_ellipsoids(channel_offset_dict=channel_offset_dict)
-        print(f"Dev | Figure: {self._figure}")
         return self._fig_to_image()
+
+    def create_distance_table_ax(self, beads, ax):
+        """
+        Creates a table showing pairwise Euclidean distances between beads on an existing axes.
+        Each bead is provided as a dictionary with:
+           - 'bead': a tuple/list of zyx coordinates.
+           - 'colormap': a string with a valid matplotlib color.
+        """
+        # Sort keys numerically for consistency.
+        keys = sorted(beads.keys(), key=lambda x: float(x))
+        n = len(keys)
+
+        # Compute pairwise distance matrix.
+        dist_matrix = np.zeros((n, n))
+        for i, key_i in enumerate(keys):
+            coord_i = np.array(beads[key_i]["bead"])
+            for j, key_j in enumerate(keys):
+                coord_j = np.array(beads[key_j]["bead"])
+                dist_matrix[i, j] = np.linalg.norm(coord_i - coord_j)
+
+        # Format the values for table cells.
+        cell_text = [[f"{dist_matrix[i, j]:.0f}" for j in range(n)] for i in range(n)]
+
+        # Create the table on the provided axes.
+        table = ax.table(cellText=cell_text, rowLabels=keys, colLabels=keys, loc='center')
+        table.scale(1, 1.5)
+
+        # Color header cells with the bead's colormap.
+        cells = table.get_celld()
+        for j, key in enumerate(keys):
+            cell = cells.get((0, j))
+            if cell:
+                cell.set_facecolor(beads[key]["colormap"])
+        for i, key in enumerate(keys):
+            cell = cells.get((i + 1, -1))
+            if cell:
+                cell.set_facecolor(beads[key]["colormap"])
+
+        ax.axis('tight')
+        ax.axis('off')
 
 
 

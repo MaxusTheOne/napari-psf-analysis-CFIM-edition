@@ -46,7 +46,7 @@ class ImageInteractionManager(QWidget):
 
         self.image_layers_reference = MultiKeyDict()
         self._viewer.layers.events.inserted.connect(self.update_image_references)
-        self._viewer.layers.events.removed.connect(self.update_image_references)
+        self._viewer.layers.events.removed.connect(self.remove_image_references)
 
 
     def update_image_references(self):
@@ -55,6 +55,8 @@ class ImageInteractionManager(QWidget):
             if isinstance(layer, napari.layers.Image):
                 data = layer.metadata
                 if data == {}:
+                    continue
+                elif not data.get("type") in ("image", None):
                     continue
 
                 if self.image_layers_reference.has_id(layer.unique_id):
@@ -70,7 +72,16 @@ class ImageInteractionManager(QWidget):
                 self.image_layers_reference[layer.name, layer.unique_id, int(layer.metadata["EmissionWavelength"])] = data
 
 
+    def remove_image_references(self):
+        dicts_to_delete = []
+        for reference in self.image_layers_reference:
+            uuid = self.image_layers_reference[reference]["unique_id"]
+            for layer in self._viewer.layers:
+                if layer.unique_id == uuid:
+                    break
+                dicts_to_delete.append(uuid)
 
+        self.image_layers_reference.remove(dicts_to_delete)
 
     # image means a napari.layers.Image object
     @overload

@@ -12,6 +12,7 @@ import napari.layers
 import numpy as np
 import yaml
 from fontTools.misc.arrayTools import pointsInRect
+from pandas import DataFrame
 from qtpy.QtWidgets import QLayout
 from napari import viewer
 from napari.qt.threading import FunctionWorker, thread_worker, GeneratorWorker
@@ -240,7 +241,7 @@ class PsfAnalysis(QWidget):
         base_name = "Estimated Beads"
         points = [beads_dict["points"] for beads_dict in estimated_beads]
         wavelengths = [beads_dict["wavelength"] for beads_dict in estimated_beads]
-        bead_colors = [self.image_selection.get_color_by_wavelength(wavelength) for wavelength in wavelengths]
+        bead_colors = [self.image_manager.get_color_by_wavelength(wavelength) for wavelength in wavelengths]
 
         layer_amount = len(estimated_beads)
         estimated_beads_layers = [layer for layer in self.viewer.layers if base_name in layer.name]
@@ -394,9 +395,9 @@ class PsfAnalysis(QWidget):
         layout = QFormLayout(basic_settings)
         basic_settings.setLayout(layout)
 
-        self.image_selection = ImageInteractionManager(parent=basic_settings, viewer=self.viewer)
-        layout.addRow(QLabel("Channels", basic_settings), self.image_selection.init_ui())
-        self.cbox_img = self.image_selection.drop_down  # Exposing this as a "legacy" fix
+        self.image_manager = ImageInteractionManager(parent=basic_settings, viewer=self.viewer)
+        layout.addRow(QLabel("Channels", basic_settings), self.image_manager.init_ui())
+        self.cbox_img = self.image_manager.drop_down  # Exposing this as a "legacy" fix
 
         self.point_dropdown = PointsDropdown(parent=basic_settings)
         self.point_dropdown.setToolTip(
@@ -515,9 +516,9 @@ class PsfAnalysis(QWidget):
                     )
                     # NOTE: maybe put these in their own function
                     self.fill_settings_boxes(layer)
+
                     self.error_widget.set_img_index(self.current_img_index)
-                    self._validate_image()
-                    break
+        self._validate_image()
 
     def fill_settings_boxes(self, layer):
         metadata = layer.metadata
@@ -548,7 +549,7 @@ class PsfAnalysis(QWidget):
 
     def _create_bead_finder(self):
 
-        image_layers = self.image_selection.get_selected_as_list()
+        image_layers = self.image_manager.get_selected_as_list()
         print(f"Image layers len: {len(image_layers)}")
 
         self.bead_finder = BeadFinder(image_layers, self.get_scale(), bounding_box=(
@@ -576,7 +577,7 @@ class PsfAnalysis(QWidget):
     def _on_selection(self, event):
         if self.viewer.layers.selection.active is not None:
             self.delete_measurement.setEnabled(
-                self.viewer.layers.selection.active.name == "Analyzed Beads"
+                "PSF Summary" in self.viewer.layers.selection.active.name
             )
 
     def request_cancel(self):
@@ -619,9 +620,9 @@ class PsfAnalysis(QWidget):
                 # Combines the summary image from average bead with the summary image stack from the entire psf analysis.
                 averaged_summary_image_expanded = np.expand_dims(averaged_summary_image, axis=0)
                 combined_stack = np.concatenate((averaged_summary_image_expanded, measurement_stack), axis=0)
-                display_measurement_stack(combined_stack, measurement_scale, figure_title)
+                display_measurement_stack(combined_stack, measurement_scale, name=figure_title, metadata={"wavelength": channel_wavelength})
 
-                self.summary_figs[channel_wavelength] = measurement_stack
+                self.summary_figs[channel_wavelength] = combined_stack
 
                 """
                     If we have all color channels done, we create a combined summary image.
@@ -632,7 +633,8 @@ class PsfAnalysis(QWidget):
                                                         "color": current_analyzer.get_wavelength_color()}
                 channel_beads[channel_wavelength] = current_analyzer.get_centroids()
 
-                if _reset_state():  # TODO: Restore functionality to delete measurements | This could be reworked to use the threading
+                # We check if analysis is done and if we have > 1 channel
+                if self.progressbar.value() == self.progressbar.maximum() and len(channel_zyx_fwhm.keys()) > 1:  # TODO: This could take advantage of the async
                     if self._debug_dict["bead_collection"]:
                         _local_debug = True
                     else:
@@ -641,11 +643,11 @@ class PsfAnalysis(QWidget):
 
 
                     psf_bead_collections = self.filter_bead_matches(channel_beads)
-                    print(f"Dev | {len(psf_bead_collections)} groups made")
+
 
 
                     if _local_debug:
-                        print(f"Dev | Putting found bead groups in viewer")
+                        print(f"Debug | Putting found bead groups in viewer")
                         for index, collection in enumerate(psf_bead_collections):
                             point_group = []
                             for key in collection.keys():
@@ -664,11 +666,11 @@ class PsfAnalysis(QWidget):
                         min_zyx = [0, 0, 0]
                         # Dev, checking if it's actually a group of points
                         if not isinstance(bead_group, dict):
-                            print(f"Dev | Expected dict | Got: {type(bead_group)}")
+                            print(f"Error | Expected dict | Got: {type(bead_group)}")
                         for point_key in bead_group: # This line gets the key for 1 point in a group.
                             point = bead_group[point_key]
                             if not isinstance(point, tuple):
-                                print(f"Dev | Expected tuple | Got: {type(point)}")
+                                print(f"Error | Expected tuple | Got: {type(point)}")
                             for i in range(3):
                                 if point[i] > max_zyx[i]:
                                     max_zyx[i] = point[i]
@@ -692,19 +694,22 @@ class PsfAnalysis(QWidget):
                         rel_coords: list[tuple[float,float,float]] = channel_rel_coords[wavelength_key]
                         rel_coords_for_figure[wavelength_key] = tuple([int(sum([point[i] for point in rel_coords]) / len(rel_coords)) for i in range(3)])
 
-                    print(f"Dev | Final relative coords: {rel_coords_for_figure}")
-
                     render_engine = PSFRenderEngine(psf_image=averaged_bead, channels=channel_zyx_fwhm)
 
-                    final_summary_image = render_engine.render_multi_channel_summary(channel_offset_dict=rel_coords_for_figure)
+                    table_beads = {wavelength_key: {
+                        "colormap": channel_zyx_fwhm[wavelength_key]["color"],
+                        "bead": rel_coords_for_figure[wavelength_key]
+                    } for wavelength_key in rel_coords_for_figure.keys()}
+                    final_summary_image = render_engine.render_multi_channel_summary(channel_offset_dict=rel_coords_for_figure, table_beads=table_beads)
                     text = f"Summary of {len(channel_zyx_fwhm)} channels"
 
                     final_summary_image = np.expand_dims(final_summary_image, axis=0)
 
-                    display_measurement_stack(final_summary_image, measurement_scale, text)
+                    display_measurement_stack(final_summary_image, measurement_scale, name=text)
 
-                    print(f"Channel ZYX FWHM: {channel_zyx_fwhm}")
+
                     _hide_point_layers()
+            _reset_state()
 
         def _add_points_to_viewer_nm(points_nm, name="PSF images", color="red"): # TODO: Throw this in debug
             scale = self.get_scale()  # returns a tuple (z_scale, y_scale, x_scale)
@@ -723,14 +728,19 @@ class PsfAnalysis(QWidget):
                 scale=scale,
             )
 
-        def display_measurement_stack(averaged_measurement, measurement_scale, name="PSF images"):
+        def display_measurement_stack(averaged_measurement, measurement_scale,name="PSF images",metadata: dict = {}):
             """Display the averaged measurement stack in the viewer."""
+            default_metadata = {
+                "type": "Summary",
+            }
+            default_metadata.update(metadata)
             self.viewer.add_image(
                 averaged_measurement,
                 name=name,
                 interpolation2d="bicubic",
                 rgb=True,
                 scale=measurement_scale,
+                metadata= default_metadata,
             )
             # Resets napari viewer to 0.0
             self.viewer.dims.set_point(0, 0)
@@ -766,19 +776,9 @@ class PsfAnalysis(QWidget):
                 self.cancel.setText("Cancel")
                 self.extract_psfs.setEnabled(True)
                 self.progressbar.reset()
-            elif self.progressbar.value() == self.progressbar.maximum():
-                # Separating these should be the fastest way.
-                self._channel_progress = {}
-                self.progressbar.setValue(0)
-                self.cancel_extraction = False
-                self.cancel.setEnabled(False)
-                self.cancel.setText("Cancel")
-                self.extract_psfs.setEnabled(True)
-                self.progressbar.reset()
-                return True
-            return False
 
-        selected_image_layers = self.image_selection.get_selected_as_dict()
+
+        selected_image_layers = self.image_manager.get_selected_as_dict()
         point_data = self._get_points_as_dict()
 
         bead_amount = 0
@@ -945,15 +945,25 @@ class PsfAnalysis(QWidget):
 
     def _validate_image(self):
         try:
-            self.error_widget.clear()
-            widget_settings = {**self.settings_Widget.settings["image_analysis_settings"], **{
-                "RI_mounting_medium": self.mounting_medium.value(), "Emission": self.emission.value(),
-                "NA": self.na.value()}}
-            expected_z_spacing = analyze_image(self.image_selection.get_image(0), self.error_widget,
-                                               widget_settings=widget_settings)
+            expected_z_spacing = 0
+            selection = self.image_manager.get_images()
+            for selected in selection:
+                wavelength = selected.metadata.get("EmissionWavelength", None)
+                self.error_widget.clear_channel(wavelength)
+
+
+                widget_settings = {
+                    "RI_mounting_medium": self.mounting_medium.value(),
+                    "Emission": selected.metadata.get("EmissionWavelength", None),
+                    "NA": selected.metadata.get("LensNA", None),
+                }
+                widget_settings.update(self.settings_Widget.settings["image_analysis_settings"])
+                channel_expected_z_spacing = analyze_image(selected, widget_settings)
+                if channel_expected_z_spacing > expected_z_spacing:
+                    expected_z_spacing = channel_expected_z_spacing
+
+
             self.psf_z_box_size.setValue(int(expected_z_spacing) * 3)
-            print(
-                f"Dev | Analyzed: {self.image_selection.get_image(0)}")  # This is supposed to mean it currently works badly
 
         except Exception as e:
             print("Error in image analysis: ", e)
@@ -980,7 +990,7 @@ class PsfAnalysis(QWidget):
             return point_layers
 
     def _get_current_img_layers(self):
-        img_layers = self.image_selection.get_selected_as_list()
+        img_layers = self.image_manager.get_selected_as_list()
         return img_layers
 
     def _get_current_img_data(self):
@@ -1020,7 +1030,7 @@ class PsfAnalysis(QWidget):
 
     def _get_patch_size(self, index: int = -1) -> Tuple[float, float, float]:
         if index > -1:
-            metadata = self.image_selection.get_metadata(index)
+            metadata = self.image_manager.get_metadata(index)
             z_box = _calculate_expected_z_spacing(emission=metadata["EmissionWavelength"],
                                                   numerical_aperture=metadata["NA"],
                                                   refractive_index=metadata["RI_mounting_medium"])
@@ -1081,39 +1091,47 @@ class PsfAnalysis(QWidget):
         )
 
     def delete_measurement_action(self):
-        if len(
-                self.viewer.layers.selection
-        ) > 0 and self.viewer.layers.selection.active.name.startswith(
-            "Analyzed " "Beads"
-        ):
+        if (len(self.viewer.layers.selection) > 0 and
+                self.viewer.layers.selection.active.name.startswith("PSF Summary")):
+
             idx = self.viewer.dims.current_step[0]
-            self.results = self.results.drop(idx).reset_index(drop=True)
+            wavelength = self.viewer.layers.selection.active.metadata.get("wavelength", "None")
+
+            results_index = [i for i, x in enumerate(self.results) if x["Emission"][0] == wavelength]
+            if not results_index:
+                show_info(f"No results found for wavelength: {wavelength}")
+                return
+
+            if idx > 0:
+                self.results[results_index[0]] = self.results[results_index[0]].drop(idx - 1).reset_index(drop=True)
+
             if idx == 0:
-                self.summary_figs = self.summary_figs[1:]
-            elif idx == self.summary_figs.shape[0] - 1:
-                self.summary_figs = self.summary_figs[:-1]
+                show_info("Can't delete the average bead.")
+            elif idx == self.summary_figs[wavelength].shape[0] - 1:
+                self.summary_figs[wavelength] = self.summary_figs[wavelength][:-1]
             else:
-                self.summary_figs = np.concatenate(
+                self.summary_figs[wavelength] = np.concatenate(
                     [
-                        self.summary_figs[:idx],
-                        self.summary_figs[idx + 1:],  # noqa: E203
+                        self.summary_figs[wavelength][:idx],
+                        self.summary_figs[wavelength][idx + 1:],  # noqa: E203
                     ]
                 )
-            if len(self.summary_figs) == 0:
+            if len(self.summary_figs.get(wavelength, [])) <= 1:
                 self.viewer.layers.remove_selected()
             else:
-                self.viewer.layers.selection.active.data = self.summary_figs
+                self.viewer.layers.selection.active.data = self.summary_figs[wavelength]
         else:
-            show_info("Please select the 'Analyzed Beads' layer.")
+            show_info("Please select 'PSF Summary' layer.")
 
     def save_measurements(self):
         if not self.results:
             show_info("No results to save.")
             return
-        out_path = pathlib.Path(self.settings_Widget.settings["output_folder"])
+        out_path = self.settings_Widget.settings["output_folder"]
         os.makedirs(out_path, exist_ok=True)
         for psf_results in self.results:
-            print(f"Dev | Results: {psf_results} \nType: {psf_results} | Len: {len(psf_results)}")
+            if psf_results.empty:
+                continue
             formatted_bead = {
                 "z_fwhm": psf_results["FWHM_1D_Z"].mean(),
                 "y_fwhm": psf_results["FWHM_2D_Y"].mean(),
@@ -1138,8 +1156,8 @@ class PsfAnalysis(QWidget):
 
             for i, row in psf_results.iterrows():
                 save_path = os.path.join(out_path, basename(row["PSF_path"]))
-                sanitized_path = sanitize_path(save_path)
-                figure = self.summary_figs[wavelength_id][i]
+                sanitized_path = sanitize(save_path)
+                figure = self.summary_figs[wavelength_id][i + 1] # +1 because the first one is the average
                 imsave(sanitized_path, figure)
 
             if self.temperature.text() != "":
@@ -1174,15 +1192,15 @@ class PsfAnalysis(QWidget):
             if self.comment.text() != "":
                 psf_results["Comment"] = self.comment.text()
 
-            sanitized_out = sanitize_path(out_path)
+
             entry = psf_results.iloc[0]
             psf_results.to_csv(
                 join(
-                    sanitized_out,
+                    out_path,
                     "PSFMeasurement_"
                     + entry["Date"]
                     + "_"
-                    + entry["ImageName"]
+                    + sanitize(entry["ImageName"])
                     + "_"
                     + entry["Microscope"]
                     + "_"
@@ -1193,6 +1211,7 @@ class PsfAnalysis(QWidget):
                 ),
                 index=False,
             )
+        # TODO: Get the report module acceptable again.
         # self.report_widget.create_pdf(path=self.settings_Widget.settings["output_folder"])
         show_info("Saved results.")
 
@@ -1204,15 +1223,11 @@ def _calculate_expected_z_spacing(emission, refractive_index, numerical_aperture
     """
     return (2 * refractive_index * emission) / (numerical_aperture ** 2)
 
-def sanitize_path(path):
+def sanitize(string):
     """
         Removes illegal characters from the path.
     """
-    # Split the path into its directory and base name
-    dir_part = os.path.dirname(path)
-    base_name = os.path.basename(path)
-    # Sanitize only the filename (remove invalid Windows characters)
-    safe_basename = re.sub(r'[<>:"/|?*]', '', base_name)
+    safe_basename = re.sub(r'[|]', '-', string)
     # Reassemble the safe path using the original directory
-    return os.path.join(dir_part, safe_basename)
+    return safe_basename
 

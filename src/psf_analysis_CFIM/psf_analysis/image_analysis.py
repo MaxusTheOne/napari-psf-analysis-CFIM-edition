@@ -4,14 +4,20 @@ import numpy as np
 import pandas as pd
 from napari.utils.notifications import show_info
 
-from psf_analysis_CFIM.error_widget.error_display_widget import ErrorDisplayWidget
+from psf_analysis_CFIM.error_widget.error_display_widget import ErrorDisplayWidget, report_validation_error, \
+    report_validation_warning
+
 
 # TODO: Rewrite this to a class
 # TODO: A whole section for analysing quality after finding beads
-def analyze_image(img_layer, error_widget: ErrorDisplayWidget, widget_settings: Dict[str, any], num_bins=8):
+def analyze_image(img_layer, widget_settings: Dict[str, any], num_bins=8):
 
     img_data = img_layer.data
     settings = widget_settings
+
+    channel = get_first_existing_key(settings, ("wavelength", "Emission", "EmissionWavelength"), 0)
+
+    print(f"Dev | Analysing image for: {channel}")
 
     if img_data is None:
         raise ValueError("Image data cannot be None")
@@ -24,7 +30,6 @@ def analyze_image(img_layer, error_widget: ErrorDisplayWidget, widget_settings: 
     else:
         max_val = img_data.max()
 
-    metadata = img_layer.metadata
     # Calculate pixel counts
     min_pixels = (img_data == 0).sum()
     max_pixels = (img_data == max_val).sum()
@@ -46,17 +51,17 @@ def analyze_image(img_layer, error_widget: ErrorDisplayWidget, widget_settings: 
     max_percentage = max_pixels / total_pixels * 100
 
     # Error handling
-    error_handling_intensity(min_percentage, max_percentage, max_val, error_widget, settings["intensity_settings"])
+    error_handling_intensity(min_percentage, max_percentage, max_val, settings["intensity_settings"],channel)
     # report_noise(img_data, error_widget, settings["noise_settings"]) # TODO: Make this work better before enabling
 
     try:
-        expected_z_spacing = report_z_spacing(img_layer, error_widget, widget_settings)
+        expected_z_spacing = report_z_spacing(img_layer, widget_settings, channel)
     except ValueError as e:
-        show_info(e)
+        print(f"Error calculating expected z spacing: {e}")
         expected_z_spacing = None
     return expected_z_spacing
 
-def error_handling_intensity(min_percentage, max_percentage, max_val, error_widget, settings):
+def error_handling_intensity(min_percentage, max_percentage, max_val, settings, channel):
     # TODO: make constants dependent on config file
     lower_warning_percent = settings["lower_warning_percent"]
     lower_error_percent = settings["lower_error_percent"]
@@ -65,14 +70,14 @@ def error_handling_intensity(min_percentage, max_percentage, max_val, error_widg
 
     # Cast warnings / errors based on constants
     if min_percentage > lower_error_percent:
-        error_widget.add_error(f"Too many pixels with min intensity | {round(min_percentage, 4)}% of pixels")
+        report_validation_error(f"Too many pixels with min intensity | {round(min_percentage, 4)}% of pixels",channel)
     elif min_percentage > lower_warning_percent:
-        error_widget.add_warning(f"Many pixels with min intensity | {round(min_percentage, 4)}% of pixels")
+        report_validation_warning(f"Many pixels with min intensity | {round(min_percentage, 4)}% of pixels",channel)
 
     if max_percentage > upper_error_percent:
-        error_widget.add_error(f"Too many pixels with max intensity ({max_val}) | {round(max_percentage, 4)}% of pixels")
+        report_validation_error(f"Too many pixels with max intensity ({max_val}) | {round(max_percentage, 4)}% of pixels",channel)
     elif max_percentage > upper_warning_percent:
-        error_widget.add_warning(f"Many pixels with max intensity ({max_val}) | {round(max_percentage, 4)}% of pixels")
+        report_validation_warning(f"Many pixels with max intensity ({max_val}) | {round(max_percentage, 4)}% of pixels",channel)
 
 
 
@@ -91,7 +96,7 @@ def report_noise(img_data, error_widget, settings):
     elif standard_deviation > high_noise_threshold:
             error_widget.add_error(f"High noise detected, image might be unusable | Standard deviation: {standard_deviation:.2f}")
 
-def report_z_spacing(img_layer, error_widget: ErrorDisplayWidget, widget_settings: Dict[str, any]):
+def report_z_spacing(img_layer, widget_settings: Dict[str, any], channel=0):
     """
     Calculate the expected bead z size and compare it to the z-spacing of the image.
 
@@ -99,7 +104,6 @@ def report_z_spacing(img_layer, error_widget: ErrorDisplayWidget, widget_setting
 
     Parameters:
         img_layer (napari.layers.): The image layer to analyze. Expected to have a `scale` attribute in nanometers (nm).
-        error_widget (ErrorDisplayWidget): The widget to display errors and warnings.
         widget_settings (Dict[str, any]): Dictionary containing settings for the widget. Expected keys:
             - "RI_mounting_medium" (float): Refractive index of the mounting medium.
             - "Emission" (float): Emission wavelength in nanometers (nm).
@@ -108,21 +112,21 @@ def report_z_spacing(img_layer, error_widget: ErrorDisplayWidget, widget_setting
     Raises:
         ValueError: If any of the required settings are missing from `widget_settings`.
     """
-    reflective_index = widget_settings["RI_mounting_medium"]
-    emission = widget_settings["Emission"]
-    numeric_aparature = widget_settings["NA"]
+    reflective_index = float(widget_settings["RI_mounting_medium"])
+    emission = float(widget_settings["Emission"])
+    numeric_aparature = float(widget_settings["NA"])
     z_spacing = img_layer.scale[0] # We now expect the scale to be for nanometers
 
     # Check if all required settings are present
     if None in (reflective_index, emission, numeric_aparature):
-        raise ValueError("Missing required settings for calculating expected bead z size. \n reflective index | emission | numeric aparature")
+        raise ValueError(f"Missing required settings for calculating expected bead z size. \n reflective index | emission | numeric aparature\nGot: {widget_settings}")
 
     expected_bead_z_size = (2 * reflective_index * emission) / numeric_aparature ** 2
 
     if z_spacing > expected_bead_z_size / 2.5:
-        error_widget.add_error(f"Z-spacing is too large | Z-spacing: {z_spacing:.2f} nm")
+        report_validation_error(f"Z-spacing is too large | Z-spacing: {z_spacing:.2f} nm", int(channel))
     elif z_spacing > expected_bead_z_size / 3.5:
-        error_widget.add_warning(f"Z-spacing is larger than expected | Z-spacing: {z_spacing:.2f} nm")
+        report_validation_warning(f"Z-spacing is larger than expected | Z-spacing: {z_spacing:.2f} nm", int(channel))
     return expected_bead_z_size
 
 
@@ -224,3 +228,8 @@ def intersects_3d(box1, box2):
             box1[5] < box2[2] or  # box1 is entirely left of box2 in x
             box1[2] > box2[5]  # box1 is entirely right of box2 in x
     )
+def get_first_existing_key(d, keys, default=None):
+    for key in keys:
+        if key in d:
+            return d[key]
+    return default

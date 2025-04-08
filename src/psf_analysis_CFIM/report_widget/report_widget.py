@@ -75,7 +75,7 @@ class ReportWidget(QWidget):
             Add bead stats to the report.
         """
         bead_stats = {f"{data_type}": stats}
-        print(f"Dev | channel type: {type(channel)} | data type: {type(data_type)}")
+
         if channel in self.bead_data:
             self.bead_data[channel].update(bead_stats)
         else:

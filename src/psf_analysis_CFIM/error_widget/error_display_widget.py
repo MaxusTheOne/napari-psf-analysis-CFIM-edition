@@ -39,9 +39,6 @@ def pixmap_to_html(pixmap, width=16, height=16):
     b64_str = ba.toBase64().data().decode("ascii")
     return f'<img src="data:image/png;base64,{b64_str}" width="{width}" height="{height}">'
 
-def report_error_box(corner, shape):
-    error_emitter.errorOccurredBox.emit(corner, shape)
-
 def report_error(message="", point=()):
     error_emitter.errorOccurred.emit(message, point)
 
@@ -50,11 +47,21 @@ def report_warning(message="", points=[]):
 
 class ErrorEmitter(QObject):
     errorOccurred = Signal(str, tuple)
-    errorOccurredBox = Signal(tuple, tuple)
     warningOccurred = Signal(str, list)
 
-
 error_emitter = ErrorEmitter()
+
+def report_validation_error(message="", channel=0):
+    validation_emitter.errorOccurred.emit(message, int(channel))
+
+def report_validation_warning(message="", channel=0):
+    validation_emitter.warningOccurred.emit(message, int(channel))
+
+class ValidationErrorEmitter(QObject):
+    errorOccurred = Signal(str, int)
+    warningOccurred = Signal(str, int)
+
+validation_emitter = ValidationErrorEmitter()
 
 
 class ErrorDisplayWidget(QWidget):
@@ -64,6 +71,8 @@ class ErrorDisplayWidget(QWidget):
             Summary gives a detail view when clicked.
         """
         super().__init__(parent)
+        self.channel_warnings = {}
+        self.channel_errors = {}
         self.warnings = []
         self.errors = []
         self.img_index = 0
@@ -81,8 +90,10 @@ class ErrorDisplayWidget(QWidget):
         self.error_icon_html = pixmap_to_html(self.error_icon)
 
         error_emitter.errorOccurred.connect(self._on_error_event)
-        error_emitter.errorOccurredBox.connect(self.add_error_box)
         error_emitter.warningOccurred.connect(self._on_warning_event)
+
+        validation_emitter.errorOccurred.connect(self._on_validation_error)
+        validation_emitter.warningOccurred.connect(self._on_validation_warning)
 
         self._init_ui()
 
@@ -101,14 +112,6 @@ class ErrorDisplayWidget(QWidget):
         data = self.error_points_layer.data.tolist() if self.error_points_layer.data.size else []
         data.append(coordinate)
         self.error_points_layer.data = np.array(data)
-
-    def add_error_box(self, min_coordinate, max_coordinate):
-        """
-        Add a box to the error points layer.
-        Expected corner and shape are 3D tuples (z, x, y).
-        """
-
-        self._add_wireframe(min_coordinate, max_coordinate)
 
     def add_warning_point(self, coordinate):
         """
@@ -163,8 +166,6 @@ class ErrorDisplayWidget(QWidget):
         if point:
             self.add_error_point(point)
 
-
-
     def _on_warning_event(self, string: str, points: list[tuple]):
         """Add a warning message to the display."""
 
@@ -173,12 +174,30 @@ class ErrorDisplayWidget(QWidget):
         if points:
             self.add_warning_points(points)
 
+    def _on_validation_error(self, string: str, channel: int):
+        """ Adds a validation error to the channel errors."""
+        if channel not in self.channel_errors:
+            self.channel_errors[channel] = []
+        self.channel_errors[channel].append(string)
+        self._update_summary()
+
+    def _on_validation_warning(self, string: str, channel: int):
+        """ Adds a validation warning to the channel warnings."""
+        if channel not in self.channel_warnings:
+            self.channel_warnings[channel] = []
+        self.channel_warnings[channel].append(string)
+        self._update_summary()
 
 
     def _update_summary(self):
         """Update the button text with a summary of warnings and errors."""
-        num_warnings = len(self.warnings)
-        num_errors = len(self.errors)
+        num_warnings = 0
+        num_errors = 0
+        for channel in self.channel_warnings:
+            num_warnings += len(self.channel_warnings[channel])
+
+        for channel in self.channel_errors:
+            num_errors += len(self.channel_errors[channel])
 
         parts = []
         if num_warnings:
@@ -225,55 +244,23 @@ class ErrorDisplayWidget(QWidget):
             h_layout.setAlignment(Qt.AlignLeft)  # Align the layout to the left
             details_layout.addWidget(label)
 
-        for warning in self.warnings:
-            add_message(self.warning_icon, warning)
 
-        for error in self.errors:
-            add_message(self.error_icon, error)
+        for channel in self.channel_warnings:
+            for warning in self.channel_warnings[channel]:
+                text = f"Warning for {channel}λ: {warning}"
+                add_message(self.warning_icon, text)
 
-        if not self.warnings and not self.errors:
+
+        for channel in self.channel_errors:
+            for error in self.channel_errors[channel]:
+                text = f"Error for {channel}λ: {error}"
+                add_message(self.error_icon, text)
+
+        if not self.channel_warnings and not self.channel_errors:
             details_layout.addWidget(QLabel("No issues detected."))
 
         msg_box.layout().addWidget(details_widget)
         msg_box.exec_()
-
-    def _add_wireframe(self, min_coord, max_coord):
-        """Add a wireframe box to the viewer."""
-
-        # Define the 8 vertices of the box using the min and max coordinates
-        vertices = np.array([
-            [min_coord[0], min_coord[1], min_coord[2]],
-            [max_coord[0], min_coord[1], min_coord[2]],
-            [max_coord[0], max_coord[1], min_coord[2]],
-            [min_coord[0], max_coord[1], min_coord[2]],
-            [min_coord[0], min_coord[1], max_coord[2]],
-            [max_coord[0], min_coord[1], max_coord[2]],
-            [max_coord[0], max_coord[1], max_coord[2]],
-            [min_coord[0], max_coord[1], max_coord[2]],
-        ])
-
-        # Define the edges of the box as pairs of vertex indices
-        edges = [
-            [0, 1], [1, 2], [2, 3], [3, 0],  # bottom face
-            [4, 5], [5, 6], [6, 7], [7, 4],  # top face
-            [0, 4], [1, 5], [2, 6], [3, 7]  # vertical edges
-        ]
-
-        # Create segments for each edge (each segment is a pair of coordinates)
-        segments = np.array([[vertices[i], vertices[j]] for i, j in edges])
-
-
-        # Add the segments as a shapes layer (using 'line' type for wireframe)
-        self._viewer.add_shapes(
-            segments,
-            shape_type='line',
-            edge_color='red',
-            face_color='transparent',
-            scale=self._scale
-        )
-
-
-
 
     def add_warning(self, message: str):
         """Add a warning message and update the summary."""
@@ -284,6 +271,16 @@ class ErrorDisplayWidget(QWidget):
         """Add an error message and update the summary."""
         self.errors.append(message)
         self._update_summary()
+
+    def clear_channel(self, channel):
+        if isinstance(channel, str):
+            channel = int(channel)
+
+        if channel in self.channel_errors:
+            self.channel_errors[channel].clear()
+
+        if channel in self.channel_warnings:
+            self.channel_warnings[channel].clear()
 
     def clear(self):
         self.warnings = []

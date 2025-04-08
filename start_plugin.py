@@ -100,7 +100,6 @@ def launch_napari_dev_mode(czi_file=None, points=None):
 
         viewer.events.connect(on_status_change)
 
-    # napari.qt.Window(viewer).activate()
     viewer.window.show()
     napari.run()
 

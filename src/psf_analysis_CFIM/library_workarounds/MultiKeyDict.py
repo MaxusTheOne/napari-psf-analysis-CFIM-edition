@@ -1,4 +1,5 @@
 # python
+from typing import overload
 from uuid import UUID
 
 
@@ -49,6 +50,46 @@ class MultiKeyDict:
             return self.__getitem__(key)
         except KeyError:
             return default
+
+    @overload
+    def remove(self, key: str | UUID | int):
+        pass
+    @overload
+    def remove(self, key_list: list[str | UUID | int]):
+        pass
+
+    def remove(self, key):
+        # If key is a list, remove each item in the list.
+        if isinstance(key, list):
+            for k in key:
+                self.remove(k)
+            return
+
+        # Remove the entry from all 3 dictionaries.
+        if key in self._by_name:
+            uuid = self._by_name[key].get("unique_id")
+            wavelength = self._by_name[key].get("wavelength")
+            del self._by_name[key]
+            del self._by_uuid[uuid]
+            del self._by_wavelength[wavelength]
+            return
+
+        if key in self._by_uuid:
+            name = self._by_uuid[key].get("name")
+            wavelength = self._by_uuid[key].get("wavelength")
+            del self._by_uuid[key]
+            del self._by_name[name]
+            del self._by_wavelength[wavelength]
+            return
+
+        if key in self._by_wavelength:
+            name = self._by_wavelength[key].get("name")
+            uuid = self._by_wavelength[key].get("unique_id")
+            del self._by_wavelength[key]
+            del self._by_name[name]
+            del self._by_uuid[uuid]
+            return
+
 
 
     def clear(self):
@@ -103,4 +144,6 @@ class MultiKeyDict:
 
     def __iter__(self):
         return self.__next__()
+
+
 
