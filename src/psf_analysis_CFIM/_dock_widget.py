@@ -224,7 +224,7 @@ class PsfAnalysis(QWidget):
     def _find_beads(self):
 
         # Estimates points for the user.
-        self._create_bead_finder()
+        self._create_bead_finder() # TODO: Put settings in here
         points_dict_list = self.bead_finder.find_beads()
 
         # Displays the points in the viewer with a name like "xxλ | Estimated Beads"

@@ -55,6 +55,12 @@ class PointsDropdown(QComboBox):
 
     def set_multi_selection_by_wavelength(self, wavelength_list):
         self.multi_selection = wavelength_list
+        if len(wavelength_list) == 1:
+            # Find the wavelength in the list
+            for index in range(self.count()):
+                if wavelength_list[0] in self.itemText(index):
+                    self.setCurrentIndex(index)
+                    return
         text = f"{len(self.multi_selection)} layers selected"
         self.add_item(text)
         self.setCurrentText(text)
