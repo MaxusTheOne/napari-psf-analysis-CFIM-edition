@@ -591,8 +591,6 @@ class PSFRenderEngine:
             sorted_keys = sorted(channel_offset_dict.keys(), key=lambda k: channel_offset_dict[k][idx], reverse=False)
             channel_dim_prio_dict[axis] = tuple(sorted_keys)
 
-        print(f"Dev | channel_dim_prio_dict: {channel_dim_prio_dict}\n sorted_keys: {sorted_keys}")
-
         ellipsoid_calc_dict = {}
         for key in sorted_keys:
             channel_dict = self.channels[key]
@@ -656,25 +654,6 @@ class PSFRenderEngine:
                         alpha=0.1,
                         levels=[dim_offset, dim_offset + 1000],
                     )
-
-
-
-
-
-
-        # Levels give lines equal to n + 1.
-        # The coord system is xyz. Instead of zyx that is used in the rest of the code.
-
-        #
-        #
-        # print(f"Dev | zorder for {color}: ")
-        # for zdir, lim, offset in zyx_contour_args:
-
-        #
-        #
-        #
-        #     print(f"- {zdir}: {(offset if zdir == "y" else -offset)}")
-
 
 
     def _add_cov_ellipsoid(self):

@@ -17,7 +17,6 @@ def analyze_image(img_layer, widget_settings: Dict[str, any], num_bins=8):
 
     channel = get_first_existing_key(settings, ("wavelength", "Emission", "EmissionWavelength"), 0)
 
-    print(f"Dev | Analysing image for: {channel}")
 
     if img_data is None:
         raise ValueError("Image data cannot be None")

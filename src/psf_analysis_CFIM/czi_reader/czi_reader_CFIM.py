@@ -10,26 +10,24 @@ import numpy as np
 def truncate_filename(filename, max_chars, split_before_max=True):
     """
         Splits a filename into words and truncates it to max_chars.
-        If split_before_max is False, it will append the first word that exceeds max_chars.
+        If split_before_max is False, it will include the first word that exceeds max_chars.
     """
     words = filename.split()
     result = []
     current_length = 0
 
     for word in words:
-        # If there are already words in result, account for the space.
         extra = 1 if result else 0
-        # If adding this word would exceed max_chars, break.
+
         if current_length + extra + len(word) > max_chars:
             if not result:
-                # If the first word is already too long, truncate it.
                 result.append(word[:max_chars])
+
             if not split_before_max:
-                # If split_before_max is False, add the word before breaking.
                 result.append(" ")
                 result.append(word)
             break
-        # Append space if not the first word.
+        
         if extra:
             result.append(" ")
         result.append(word)
