@@ -465,7 +465,7 @@ class PsfAnalysis(QWidget):
             "out of the input image. This is the XY size of the crop in nano meters."
         )
         self.psf_yx_box_size.setMinimum(1.0)
-        self.psf_yx_box_size.setMaximum(1000000.0)
+        self.psf_yx_box_size.setMaximum(100000.0)
         self.psf_yx_box_size.setSingleStep(500.0)
         self.psf_yx_box_size.setValue(2000.0)
         layout.addRow(
@@ -634,9 +634,10 @@ class PsfAnalysis(QWidget):
                 channel_beads[channel_wavelength] = current_analyzer.get_centroids()
 
                 # We check if analysis is done and if we have > 1 channel
-                if self.progressbar.value() == self.progressbar.maximum() and len(channel_zyx_fwhm.keys()) > 1:  # TODO: This could take advantage of the async
-                    self.display_final_summary(channel_beads, channel_zyx_fwhm, scale = measurement_scale)
-            _reset_state()
+                if self.progressbar.value() == self.progressbar.maximum():  # TODO: This could take advantage of the async
+                    if len(channel_zyx_fwhm.keys()) > 1:
+                        self.display_final_summary(channel_beads, channel_zyx_fwhm, scale = measurement_scale)
+                    _reset_state()
 
 
 
@@ -645,6 +646,8 @@ class PsfAnalysis(QWidget):
 
 
         def _update_progress(return_val):  # TODO: Make this more efficient
+            if self.cancel_extraction:
+                worker.quit()
             progress = return_val[0]
             color = return_val[1]
             if not isinstance(progress, int) or not isinstance(color, str):
@@ -657,18 +660,16 @@ class PsfAnalysis(QWidget):
             self.progressbar.setValue(total_progress)
             if self._debug_progress:
                 print(f"Progress: {self.progressbar.value()} / {self.progressbar.maximum()}")
-            if self.cancel_extraction:
-                worker.quit()
 
         def _reset_state(): # TODO: make canceling work again
             if self.cancel_extraction:
-                self._channel_progress = {}
                 self.progressbar.setValue(0)
-                self.cancel_extraction = False
-                self.cancel.setEnabled(False)
-                self.cancel.setText("Cancel")
-                self.extract_psfs.setEnabled(True)
-                self.progressbar.reset()
+            self._channel_progress = {}
+            self.cancel_extraction = False
+            self.cancel.setEnabled(False)
+            self.cancel.setText("Cancel")
+            self.extract_psfs.setEnabled(True)
+            self.progressbar.reset()
 
 
         selected_image_layers = self.image_manager.get_selected_as_dict()
@@ -972,8 +973,8 @@ class PsfAnalysis(QWidget):
                 if channel_expected_z_spacing > expected_z_spacing:
                     expected_z_spacing = channel_expected_z_spacing
 
-
-            self.psf_z_box_size.setValue(int(expected_z_spacing) * 3)
+            if expected_z_spacing != 0:
+                self.psf_z_box_size.setValue(int(expected_z_spacing) * 3)
 
         except Exception as e:
             print("Error in image analysis: ", e)
