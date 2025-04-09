@@ -10,6 +10,7 @@ from matplotlib_scalebar.scalebar import ScaleBar
 from mpl_toolkits.mplot3d.axis3d import Axis
 from numpy._typing import ArrayLike
 from pydantic import ValidationError
+from skimage.draw import ellipsoid
 
 from psf_analysis_CFIM.psf_analysis.fit.fitter import YXFitter, ZFitter, ZYXFitter
 from psf_analysis_CFIM.psf_analysis.image import Calibrated2DImage, Calibrated3DImage
@@ -450,20 +451,9 @@ class PSFRenderEngine:
     def _add_color_ellipsoids(self, channel_offset_dict: dict = None):
         self._configure_ticks_and_bounds()
 
-        for key, value in enumerate(self.channels):
+        self._add_fwhm_ellipsoids(channel_offset_dict)
 
-            channel_dict = self.channels[value]
-            zyx_fwhm = channel_dict.get("zyx")
-            color = channel_dict["color"]
-            if channel_offset_dict:
-                offset = channel_offset_dict.get(value, (0, 0, 0))
-            else:
-                offset = (0, 0, 0)
 
-            if offset == (0, 0, 0):
-                print(f"Found no offset for channel {value}")
-
-            self._add_fwhm_ellipsoid(zyx_fwhm, color, offset= offset)
 
     def _add_axis_aligned_ellipsoid(self):
         from psf_analysis_CFIM.psf_analysis.utils import sigma
@@ -558,11 +548,16 @@ class PSFRenderEngine:
         )
         return x / spacing[2], y / spacing[1], z / spacing[0]
 
-    def _get_simple_ellipsoid(self, xy_width: float, z_height: float, resolution: int = 30, zyx_offset: Tuple[float, float, float] = (0, 0, 0)):
-        # Compute the half dimensions.
-        a = xy_width / 2  # half width in x
-        b = xy_width / 2  # half width in y
-        c = z_height / 2  # half height in z
+    def _get_simple_ellipsoid(self, xy_width: float | tuple[float, float], z_height: float, resolution: int = 30, zyx_offset: Tuple[float, float, float] = (0, 0, 0)):
+        if isinstance(xy_width, float):
+            a = xy_width / 2
+            b = xy_width / 2
+        else:
+            a = xy_width[0] / 2
+            b = xy_width[1] / 2
+
+
+        c = z_height / 2
 
         # Create angular grids.
         u = np.linspace(0, 2 * np.pi, resolution)
@@ -575,102 +570,111 @@ class PSFRenderEngine:
 
         return x + zyx_offset[2], y + zyx_offset[1], z + zyx_offset[0]
 
-    def _add_fwhm_ellipsoid(self, zyx_fwhm:tuple, color: str = "navy", offset: Tuple[float, float, float] = (0, 0, 0)):
+    def _add_fwhm_ellipsoids(self, channel_offset_dict):
+
+        import math
 
 
-        ellipsis_calc = self._get_simple_ellipsoid(
-            xy_width=zyx_fwhm[1], z_height=zyx_fwhm[0], zyx_offset=offset
+        # Sort channels based on the distance in (z, -y, x) space.
+        sorted_keys = sorted(
+            self.channels,
+            key=lambda key: math.sqrt(
+                (channel_offset_dict.get(key, (0, 0, 0))[0]) ** 2 +
+                (-channel_offset_dict.get(key, (0, 0, 0))[1]) ** 2 +
+                (channel_offset_dict.get(key, (0, 0, 0))[2]) ** 2
+            ) if channel_offset_dict else 0,
         )
 
-        self._ax_3d.plot_surface(
-            *ellipsis_calc, rstride=1, cstride=1, color=color, antialiased=True, alpha=0.3
-        )
-        self._ax_3d.plot_wireframe(
-            *ellipsis_calc, rstride=4, cstride=4, color=color, antialiased=True, alpha=0.2
-        )
+        channel_dim_prio_dict = {}
+        dims = {"z": 0, "y": 1, "x": 2}
+        for axis, idx in dims.items():
+            sorted_keys = sorted(channel_offset_dict.keys(), key=lambda k: channel_offset_dict[k][idx], reverse=False)
+            channel_dim_prio_dict[axis] = tuple(sorted_keys)
+
+        print(f"Dev | channel_dim_prio_dict: {channel_dim_prio_dict}\n sorted_keys: {sorted_keys}")
+
+        ellipsoid_calc_dict = {}
+        for key in sorted_keys:
+            channel_dict = self.channels[key]
+            zyx_fwhm = channel_dict.get("zyx")
+            color = channel_dict["color"]
+            if channel_offset_dict:
+                channel_offset = channel_offset_dict.get(key, (0, 0, 0))
+            else:
+                channel_offset = (0, 0, 0)
+
+            if channel_offset == (0, 0, 0):
+                print(f"Found no offset for channel {key}")
+
+
+            ellipsoid_calc = self._get_simple_ellipsoid(
+                xy_width=(zyx_fwhm[2], zyx_fwhm[1]), z_height=zyx_fwhm[0], zyx_offset=channel_offset
+            )
+
+            self._ax_3d.plot_surface(
+                *ellipsoid_calc, rstride=1, cstride=1, color=color, antialiased=True, alpha=0.3
+            )
+            self._ax_3d.plot_wireframe(
+                *ellipsoid_calc, rstride=4, cstride=4, color=color, antialiased=True, alpha=0.2
+            )
+
+            ellipsoid_calc_dict[key] = ellipsoid_calc
+
+        # We use the dim sorted dict to paint the ellipsoids in the correct order.
+        # Kinda ugly, but thats what I could think of.
+        zyx_args_dict = {
+            "z": (self._ax_3d.get_zlim()[0], 0),
+            "y": (self._ax_3d.get_ylim()[1], 1),
+            "x": (self._ax_3d.get_xlim()[0], 2),
+        }
+
+        for dim_key in channel_dim_prio_dict:
+
+            for channel_key in channel_dim_prio_dict[dim_key]:
+                ellipsoid_calc = ellipsoid_calc_dict[channel_key]
+                color = self.channels[channel_key]["color"]
+                zyx_offset = channel_offset_dict.get(channel_key, (0, 0, 0))
+
+                lim = zyx_args_dict[dim_key][0]
+                dim_offset = zyx_offset[zyx_args_dict[dim_key][1]]
+
+
+                self._ax_3d.contour(
+                    *ellipsoid_calc,
+                    zdir=dim_key,
+                    offset=lim,
+                    levels=[dim_offset],
+                    colors=color,
+                    linestyles="solid",
+                )
+
+                self._ax_3d.contourf(
+                        *ellipsoid_calc,
+                        zdir=dim_key,
+                        offset=lim,
+                        colors=color,
+                        alpha=0.1,
+                        levels=[dim_offset, dim_offset + 1000],
+                    )
+
+
+
+
 
 
         # Levels give lines equal to n + 1.
         # The coord system is xyz. Instead of zyx that is used in the rest of the code.
-        self._ax_3d.contour(
-            *ellipsis_calc,
-            zdir="z",
-            offset=self._ax_3d.get_zlim()[0],
-            levels=0,
-            vmin=-1,
-            vmax=1,
-            zorder=0,
-            origin="image",
 
-            colors=color,
-            linestyles="solid"
-        )
-        self._ax_3d.contour(
-            *ellipsis_calc,
-            zdir="y",
-            offset=self._ax_3d.get_ylim()[1],
-            levels=0,
-            vmin=-1,
-            vmax=1,
-            zorder=0,
-            origin="image",
+        #
+        #
+        # print(f"Dev | zorder for {color}: ")
+        # for zdir, lim, offset in zyx_contour_args:
 
-            colors=color,
-            linestyles="solid"
+        #
+        #
+        #
+        #     print(f"- {zdir}: {(offset if zdir == "y" else -offset)}")
 
-        )
-        self._ax_3d.contour(
-            *ellipsis_calc,
-            zdir="x",
-            offset=self._ax_3d.get_xlim()[0],
-            levels=0,
-            vmin=-1,
-            vmax=1,
-            zorder=0,
-            origin="image",
-
-            colors=color,
-            linestyles="solid"
-        )
-
-        self._ax_3d.contourf(
-            *ellipsis_calc,
-            zdir="z",
-            offset=self._ax_3d.get_zlim()[0],
-            colors=color,
-            alpha=0.1,
-
-            levels=0,
-            vmin=-1,
-            vmax=1,
-            zorder=0,
-
-        )
-        self._ax_3d.contourf(
-            *ellipsis_calc,
-            zdir="y",
-            offset=self._ax_3d.get_ylim()[1],
-            colors=color,
-            alpha=0.1,
-
-            levels=0,
-            vmin=-1,
-            vmax=1,
-            zorder=0,
-
-        )
-        self._ax_3d.contourf(
-            *ellipsis_calc,
-            zdir="x",
-            offset=self._ax_3d.get_xlim()[0],
-            colors=color,
-            alpha=0.1,
-
-            levels=0,
-            vmin=-1,
-            vmax=1,
-            zorder=0,
-        )
 
 
     def _add_cov_ellipsoid(self):
