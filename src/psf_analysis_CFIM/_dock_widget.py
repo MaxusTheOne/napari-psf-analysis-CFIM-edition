@@ -169,7 +169,7 @@ class PsfAnalysis(QWidget):
             debug.set_PSFAnalysis_instance(self)
 
     def update_settings(self):
-        self.settings = self.settings_Widget.get_settings()
+        self.settings = self.settings_Widget.update_settings()
         if self.settings.get("debug"):
             print(f"Debug | Settings: {self.settings}")
 
@@ -607,7 +607,7 @@ class PsfAnalysis(QWidget):
 
                 # Creates an image of the average bead, runs the PSF analysis on it and creates summary image.
                 averaged_bead = current_analyzer.get_averaged_bead()
-                averaged_psf = PSF(image=averaged_bead)
+                averaged_psf = PSF(image=averaged_bead, psf_settings=self.settings["analyzer_settings"]["psf_settings"])
 
                 averaged_psf.analyze()
 
@@ -680,6 +680,7 @@ class PsfAnalysis(QWidget):
             self.extract_psfs.setEnabled(True)
             self.progressbar.reset()
 
+        self.update_settings()
 
         selected_image_layers = self.image_manager.get_selected_as_dict()
         point_data = self._get_points_as_dict()
@@ -730,7 +731,7 @@ class PsfAnalysis(QWidget):
                 version=version("psf_analysis_CFIM")
             ),
                 info_dict=analyzer_settings,
-                analysis_settings=self.settings["analyzer_settings"],
+                analyzer_settings=self.settings["analyzer_settings"],
             )
 
             @thread_worker(progress={"total": bead_amount})
