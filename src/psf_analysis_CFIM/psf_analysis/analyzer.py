@@ -46,8 +46,7 @@ class Analyzer:
         self._debug = os.environ.get("PSF_ANALYSIS_CFIM_DEBUG", "0") == "1"
 
         if self._debug:
-            print("Analyzer | Debug")
-            print(f"Analyzer for {self._wavelength_color} with {len(self._beads)} beads")
+            print(f"Debug | Analyzer for {self._wavelength} with {len(self._beads)} beads")
 
     def __iter__(self):
         return self

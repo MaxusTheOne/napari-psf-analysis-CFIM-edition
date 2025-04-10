@@ -39,6 +39,9 @@ if not hasattr(Axis, "_get_coord_info_old"):
 class PSFRenderEngine:
     from matplotlib.figure import Axes, Figure
 
+    settings = {
+        "covariance_ellipsoid": False
+    }
     psf_image: Calibrated3DImage = None
     psf_record: PSFRecord = None
     _figure: Figure = None
@@ -48,7 +51,9 @@ class PSFRenderEngine:
     _ax_3d: Axes = None
     _ax_3d_text: Axes = None
 
-    def __init__(self, psf_image: Calibrated3DImage=None, psf_record: PSFRecord=None, ellipsoid_color="black", channels: dict = None):
+    def __init__(self, psf_image: Calibrated3DImage=None, psf_record: PSFRecord=None, ellipsoid_color="black", channels: dict = None, render_settings: dict = None):
+        if render_settings:
+            self.settings.update(render_settings)
         self.ellipsoid_color = ellipsoid_color
         if channels is not None:
             self.channels: dict[str:dict] = channels
@@ -442,7 +447,9 @@ class PSFRenderEngine:
         if not self._has_nan_fwhm():
             self._add_axis_aligned_ellipsoid() # Adds a grey ellipsoid from the fwhm of yx and z fits
 
-        self._add_cov_ellipsoid() # Adds a blue ellipsoid from covariance
+        # TODO: Option in settings
+        if self.settings["covariance_ellipsoid"]:
+            self._add_cov_ellipsoid() # Adds a blue ellipsoid from covariance
         self._ax_3d_text.set_xlim(0, 100)
         self._ax_3d_text.set_ylim(0, 100)
         # if centroid: # Disabled by request, TODO: Option in settings
@@ -792,20 +799,34 @@ class PSFRenderEngine:
         plt.close(self._figure)
         return image
 
-    def render_multi_channel_summary(self, channel_offset_dict: dict, table_beads:dict):
+    def render_multi_channel_summary(self, channel_offset_dict: dict, table_beads:dict,
+                                     date: str = None, version: str = None, microscope: str = None, objective: str = None):
         """
             Renders a summary image with an ellipsoid for each color channel.
-            Only contains the ellipsoids. No projections or annotations.
         """
 
         self._figure = plt.figure(figsize=(10, 10), dpi=150) # TODO:  use dpi from input, might need to be dpi / 2
         self._ax_3d = self._figure.add_subplot(111, projection="3d")
+        table_ax = self._figure.add_axes((0.06, 0.750, 0.3, 0.16))
+
 
         # Allocate an additional axes for the distance table.
-        table_ax = self._figure.add_axes([0.060, 0.725, 0.3, 0.3])
         self.create_distance_table_ax(table_beads, table_ax)
 
         self._add_color_ellipsoids(channel_offset_dict=channel_offset_dict)
+
+        print(f"Dev | date: {date} | version: {version} | microscope: {microscope} | objective: {objective}")
+        if date is not None:
+            self._figure.text(0.99, 0.01, f"Acquisition date: {date}", ha="right", va="bottom", fontsize=12)
+
+
+        # Adding text to the bottom left of the figure with two extra lines above
+        if microscope:  self._figure.text(0.01, 0.059, f"Microscope: {microscope}", ha="left", va="bottom", fontsize=12)
+        if objective:   self._figure.text(0.01, 0.04, f"Objective: {objective}", ha="left", va="bottom", fontsize=12)
+        if version:     self._figure.text(0.01, 0.01, f"psf-analysis-CFIM: v{version}", ha="left", va="bottom", fontsize=12)
+
+
+
         return self._fig_to_image()
 
     def create_distance_table_ax(self, beads, ax):
@@ -816,14 +837,15 @@ class PSFRenderEngine:
            - 'colormap': a string with a valid matplotlib color.
         """
         # Sort keys numerically for consistency.
-        keys = sorted(beads.keys(), key=lambda x: float(x))
+        bead_keys_sorted = sorted(beads.keys(), key=lambda x: float(x))
+        keys = [f"{wavelength}λ" for wavelength in bead_keys_sorted]
         n = len(keys)
 
         # Compute pairwise distance matrix.
         dist_matrix = np.zeros((n, n))
-        for i, key_i in enumerate(keys):
+        for i, key_i in enumerate(bead_keys_sorted):
             coord_i = np.array(beads[key_i]["bead"])
-            for j, key_j in enumerate(keys):
+            for j, key_j in enumerate(bead_keys_sorted):
                 coord_j = np.array(beads[key_j]["bead"])
                 dist_matrix[i, j] = np.linalg.norm(coord_i - coord_j)
 
@@ -831,12 +853,12 @@ class PSFRenderEngine:
         cell_text = [[f"{dist_matrix[i, j]:.0f}" for j in range(n)] for i in range(n)]
 
         # Create the table on the provided axes.
-        table = ax.table(cellText=cell_text, rowLabels=keys, colLabels=keys, loc='center')
+        table = ax.table(cellText=cell_text, rowLabels=keys, colLabels=keys, loc='upper center')
         table.scale(1, 1.5)
 
         # Color according to colormap
         cells = table.get_celld()
-        for i, key in enumerate(keys):
+        for i, key in enumerate(bead_keys_sorted):
             row_cell = cells.get((0, i))
             col_cell = cells.get((i + 1, -1))
             for cell in (row_cell, col_cell):
@@ -844,7 +866,7 @@ class PSFRenderEngine:
                     cell.set_facecolor(beads[key]["colormap"])
                     cell.get_text().set_color("white")
 
-
+        ax.set_title("Distances between centers in nm", color="black", fontsize=14)
 
         ax.axis('tight')
         ax.axis('off')

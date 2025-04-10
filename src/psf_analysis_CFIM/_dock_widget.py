@@ -2,7 +2,6 @@ import math
 import os
 import pathlib
 import re
-import warnings
 from datetime import datetime
 from importlib.metadata import version
 from os.path import basename, dirname, exists, getctime, join
@@ -661,7 +660,9 @@ class PsfAnalysis(QWidget):
             if self._debug_progress:
                 print(f"Progress: {self.progressbar.value()} / {self.progressbar.maximum()}")
 
-        def _reset_state(): # TODO: make canceling work again
+        def _reset_state(error = None):
+            if error:
+                print(f"Error from worker: {error}")
             if self.cancel_extraction:
                 self.progressbar.setValue(0)
             self._channel_progress = {}
@@ -810,8 +811,15 @@ class PsfAnalysis(QWidget):
             "colormap": channel_zyx_fwhm[wavelength_key]["color"],
             "bead": rel_coords_for_figure[wavelength_key]
         } for wavelength_key in rel_coords_for_figure.keys()}
-        final_summary_image = render_engine.render_multi_channel_summary(channel_offset_dict=rel_coords_for_figure,
-                                                                         table_beads=table_beads)
+
+        aq_date = self.date.text()
+        final_summary_image = render_engine.render_multi_channel_summary(
+            channel_offset_dict=rel_coords_for_figure,
+            table_beads=table_beads, date= datetime(*self.date.date().getDate()).strftime("%Y-%m-%d"),
+            version=version("psf_analysis_CFIM"),
+            microscope=self.microscope.text(),
+            objective=self.objective_id.text(),
+        )
         text = f"Summary of {len(channel_zyx_fwhm)} channels"
 
         final_summary_image = np.expand_dims(final_summary_image, axis=0)
