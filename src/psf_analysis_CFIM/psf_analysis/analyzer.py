@@ -16,13 +16,14 @@ from psf_analysis_CFIM.psf_analysis.psf import PSF
 
 
 class Analyzer:
-    def __init__(self, parameters: PSFAnalysisInputs, settings=None):
-        if settings is None:
-            settings = {"wavelength_color": "black",
+    def __init__(self, parameters: PSFAnalysisInputs, analyzer_settings: dict, info_dict=None):
+        if info_dict is None:
+            info_dict = {"wavelength_color": "black",
                         "wavelength": "",
                         "excitation": "",
-                        "airy_unit": "",}
+                        "airy_unit": "", }
         self._parameters = parameters
+        self._settings = analyzer_settings
         bead_extractor = BeadExtractor(
             image=Calibrated3DImage(
                 data=parameters.img_data, spacing=parameters.spacing
@@ -30,10 +31,10 @@ class Analyzer:
             patch_size=parameters.patch_size,
         )
         self._bead_margins = bead_extractor.get_margins()
-        self._airy_unit = settings["airy_unit"]
-        self._excitation = settings["excitation"]
-        self._wavelength = settings["wavelength"]
-        self._wavelength_color = settings["wavelength_color"]
+        self._airy_unit = info_dict["airy_unit"]
+        self._excitation = info_dict["excitation"]
+        self._wavelength = info_dict["wavelength"]
+        self._wavelength_color = info_dict["wavelength_color"]
         self._invalid_beads_index = []
         self._beads = bead_extractor.extract_beads(points=self._parameters.point_data)
 
@@ -62,7 +63,7 @@ class Analyzer:
                     raise InvalidShapeError(f"Discarding bead with invalid shape: {bead.data.shape}")
                 if 0 in bead.data.shape:
                     raise InvalidShapeError(f"Discarding bead with invalid shape: {bead.data.shape}")
-                psf = PSF(image=bead)
+                psf = PSF(image=bead, psf_settings=self._settings["psf_settings"])
                 psf.analyze()
                 if psf.error:
                     raise InvalidShapeError(f"Discarding bead due to analyze error: {self._index}")

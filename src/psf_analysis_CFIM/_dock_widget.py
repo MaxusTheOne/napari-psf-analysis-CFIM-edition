@@ -122,8 +122,10 @@ class PsfAnalysis(QWidget):
         self.warnings = []
         self.errors = []
 
+        self.settings = {}
+
         # UI
-        self.settings_Widget = SettingsWidget(parent=self)
+        self.settings_Widget = SettingsWidget(parent=self, debug=True)
 
         self.bead_finder = None
 
@@ -157,6 +159,7 @@ class PsfAnalysis(QWidget):
         self.fill_layer_boxes()
 
         # setup after UI
+        self.update_settings()
         self.use_config()
         if os.getenv("PSF_ANALYSIS_CFIM_DEBUG") == "1":
             print(f"Main widget | Debug")
@@ -165,8 +168,13 @@ class PsfAnalysis(QWidget):
             debug = global_vars.debug_instance
             debug.set_PSFAnalysis_instance(self)
 
+    def update_settings(self):
+        self.settings = self.settings_Widget.get_settings()
+        if self.settings.get("debug"):
+            print(f"Debug | Settings: {self.settings}")
+
     def use_config(self):
-        settings = self.settings_Widget.settings
+        settings = self.settings
         ui_settings = settings["ui_settings"]
         settings_keys_to_widget_attributes = {
             "output_folder": "save_dir_line_edit",
@@ -721,7 +729,8 @@ class PsfAnalysis(QWidget):
                 date=datetime(*self.date.date().getDate()).strftime("%Y-%m-%d"),
                 version=version("psf_analysis_CFIM")
             ),
-                settings=analyzer_settings
+                info_dict=analyzer_settings,
+                analysis_settings=self.settings["analyzer_settings"],
             )
 
             @thread_worker(progress={"total": bead_amount})
@@ -805,14 +814,14 @@ class PsfAnalysis(QWidget):
             rel_coords_for_figure[wavelength_key] = tuple(
                 [int(sum([point[i] for point in rel_coords]) / len(rel_coords)) for i in range(3)])
 
-        render_engine = PSFRenderEngine(channels=channel_zyx_fwhm)
+        render_settings = {}
+        render_engine = PSFRenderEngine(render_settings=render_settings, channels=channel_zyx_fwhm)
 
         table_beads = {wavelength_key: {
             "colormap": channel_zyx_fwhm[wavelength_key]["color"],
             "bead": rel_coords_for_figure[wavelength_key]
         } for wavelength_key in rel_coords_for_figure.keys()}
 
-        aq_date = self.date.text()
         final_summary_image = render_engine.render_multi_channel_summary(
             channel_offset_dict=rel_coords_for_figure,
             table_beads=table_beads, date= datetime(*self.date.date().getDate()).strftime("%Y-%m-%d"),
@@ -976,7 +985,7 @@ class PsfAnalysis(QWidget):
                     "Emission": selected.metadata.get("EmissionWavelength", None),
                     "NA": selected.metadata.get("LensNA", None),
                 }
-                widget_settings.update(self.settings_Widget.settings["image_analysis_settings"])
+                widget_settings.update(self.settings["image_analysis_settings"])
                 channel_expected_z_spacing = analyze_image(selected, widget_settings)
                 if channel_expected_z_spacing > expected_z_spacing:
                     expected_z_spacing = channel_expected_z_spacing

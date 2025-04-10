@@ -10,7 +10,6 @@ from matplotlib_scalebar.scalebar import ScaleBar
 from mpl_toolkits.mplot3d.axis3d import Axis
 from numpy._typing import ArrayLike
 from pydantic import ValidationError
-from skimage.draw import ellipsoid
 
 from psf_analysis_CFIM.psf_analysis.fit.fitter import YXFitter, ZFitter, ZYXFitter
 from psf_analysis_CFIM.psf_analysis.image import Calibrated2DImage, Calibrated3DImage
@@ -40,7 +39,8 @@ class PSFRenderEngine:
     from matplotlib.figure import Axes, Figure
 
     settings = {
-        "covariance_ellipsoid": False
+        "covariance_ellipsoid": False,
+        "coordinate_annotation": False,
     }
     psf_image: Calibrated3DImage = None
     psf_record: PSFRecord = None
@@ -51,7 +51,7 @@ class PSFRenderEngine:
     _ax_3d: Axes = None
     _ax_3d_text: Axes = None
 
-    def __init__(self, psf_image: Calibrated3DImage=None, psf_record: PSFRecord=None, ellipsoid_color="black", channels: dict = None, render_settings: dict = None):
+    def __init__(self, render_settings: dict, psf_image: Calibrated3DImage=None, psf_record: PSFRecord=None, ellipsoid_color="black", channels: dict = None):
         if render_settings:
             self.settings.update(render_settings)
         self.ellipsoid_color = ellipsoid_color
@@ -452,8 +452,8 @@ class PSFRenderEngine:
             self._add_cov_ellipsoid() # Adds a blue ellipsoid from covariance
         self._ax_3d_text.set_xlim(0, 100)
         self._ax_3d_text.set_ylim(0, 100)
-        # if centroid: # Disabled by request, TODO: Option in settings
-        #     self._add_principal_components_annotons(centroid)
+        if centroid and self.settings["coordinate_annotation"]: # Disabled by request, TODO: Option in settings
+            self._add_principal_components_annotons(centroid)
 
     def _add_color_ellipsoids(self, channel_offset_dict: dict = None):
         self._configure_ticks_and_bounds()
@@ -877,9 +877,11 @@ class PSF:
     image: Calibrated3DImage = None
     psf_record: PSFRecord = None
     error = False
+    settings: dict = {}
 
-    def __init__(self, image: Calibrated3DImage):
+    def __init__(self, image: Calibrated3DImage, psf_settings: dict):
         self.image = image
+        self.settings = psf_settings
 
     def analyze(self) -> None:
         z_fitter = ZFitter(image=self.image)
@@ -916,7 +918,7 @@ class PSF:
         ellipsoid_color: str = "black",
         centroid = None,
     ) -> ArrayLike:
-        engine = PSFRenderEngine(psf_image=self.image, psf_record=self.psf_record, ellipsoid_color=ellipsoid_color)
+        engine = PSFRenderEngine(render_settings=self.settings.get("render_settings"),psf_image=self.image, psf_record=self.psf_record, ellipsoid_color=ellipsoid_color)
         return engine.render(date=date, version=version, dpi=dpi, top_left_message=top_left_message, centroid=centroid)
 
     def get_summary_dict(self) -> dict:
