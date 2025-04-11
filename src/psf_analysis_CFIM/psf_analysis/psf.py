@@ -1,3 +1,4 @@
+import pathlib
 from copy import copy
 from typing import Dict, Tuple
 
@@ -800,16 +801,25 @@ class PSFRenderEngine:
         """
             Renders a summary image with an ellipsoid for each color channel.
         """
-
-        self._figure = plt.figure(figsize=(10, 10), dpi=150) # TODO:  use dpi from input, might need to be dpi / 2
+        dpi = 300
+        self._figure = plt.figure(figsize=(10, 10), dpi=dpi / 2) # TODO:  use dpi from input, might need to be dpi / 2
         self._ax_3d = self._figure.add_subplot(111, projection="3d")
-        table_ax = self._figure.add_axes((0.06, 0.750, 0.3, 0.16))
+        pos = self._ax_3d.get_position()
+        # aparently a cm is about 0.0398 inches | And the figure is in inches
+        self._ax_3d.set_position([pos.x0, pos.y0 - 0.0787, pos.width, pos.height])
+        table_ax = self._figure.add_axes((0.06, 0.790, 0.3, 0.16))
 
 
         # Allocate an additional axes for the distance table.
         self.create_distance_table_ax(table_beads, table_ax)
 
         self._add_color_ellipsoids(channel_offset_dict=channel_offset_dict)
+
+        # Add the logo in the corner
+        l_path = pathlib.Path(__file__).parent.parent / "resources" / "logo.png"
+        logo = plt.imread(l_path)
+        self._ax_3d_logo = self._figure.add_axes([0.01, 0.99, 0.1, 0.1], zorder=2)
+        # self._figure.figimage(logo, 1, 1, alpha=0.5, zorder=1)
 
         if date is not None:
             self._figure.text(0.99, 0.01, f"Acquisition date: {date}", ha="right", va="bottom", fontsize=12)
@@ -861,7 +871,8 @@ class PSFRenderEngine:
                     cell.set_facecolor(beads[key]["colormap"])
                     cell.get_text().set_color("white")
 
-        ax.set_title("Distances between centers in nm", color="black", fontsize=14)
+        title = ax.set_title("Distances between centers in nm", color="black", fontsize=14)
+        title.set_position([0.45, 1])
 
         ax.axis('tight')
         ax.axis('off')
