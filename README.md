@@ -4,7 +4,7 @@
 [![napari hub](https://img.shields.io/endpoint?url=https://api.napari-hub.org/shields/psf-analysis-CFIM)](https://napari-hub.org/plugins/psf-analysis-CFIM)
 
 ---
-![application_screenshot](figs/PSF_CFIM_demo.gif)
+![application_screenshot](figs/PSF_CFIM_demo_v170.gif)
 
 ## Installation
 
