@@ -10,6 +10,7 @@ from typing import overload, Tuple
 import napari.layers
 import numpy as np
 import yaml
+from PyQt5.QtCore import Qt
 from qtpy.QtWidgets import QLayout
 from napari import viewer
 from napari.qt.threading import FunctionWorker, thread_worker, GeneratorWorker
@@ -192,11 +193,12 @@ class PsfAnalysis(QWidget):
             print(f"Error in use_config: {e}")
 
     def _add_logo(self):
-        logo = pathlib.Path(__file__).parent / "resources" / "logo.png"
-        logo_label = QLabel()
+        logo = pathlib.Path(__file__).parent / "resources" / "logo_smol_q.png"
         link = "https://github.com/MaxusTheOne/napari-psf-analysis-CFIM-edition?tab=readme-ov-file#readme" # TODO: Retrieve this from setup.cfg
+        logo_label = QLabel()
         logo_label.setText(f'<a href="{link}"><img src="{logo}" width="320"></a>')
         logo_label.setOpenExternalLinks(True)
+
         self.layout().addWidget(logo_label)
 
     def _add_analyse_buttons(self):

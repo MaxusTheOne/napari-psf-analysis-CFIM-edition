@@ -54,11 +54,10 @@ This edition includes the following additional features:
 ## Known Issues
 
 - for autofilling, only .czi files are supported. Other issuses might also arise from not using .czi.
-- Paths including non-ASCII characters, like "æøå" cause unintended behavior.
+- Installing plugin under paths including non-ASCII characters, like "æøå" cause unintended behavior.
 - The output.csv file is comma seperated with dot as decimal seperator, this might cause issue importing in Excel.
 - Intensity for bead finder is hardcoded for now.
 - Some images might still crash in the analysis.
-- Hidden layer RaIn_label might show in newer versions of napari. (Only planned as of writing this)
 
 
 ## License
