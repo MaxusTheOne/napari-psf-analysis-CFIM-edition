@@ -1,3 +1,11 @@
+# psf-analysis-CFIM
+
+[![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
+[![napari hub](https://img.shields.io/endpoint?url=https://api.napari-hub.org/shields/psf-analysis-CFIM)](https://napari-hub.org/plugins/psf-analysis-CFIM)
+
+---
+![application_screenshot](figs/PSF_CFIM_demo.gif)
+
 ## Installation
 
 You can install this package using one of the following options:
@@ -14,6 +22,10 @@ or
   pip install git+https://github.com/MaxusTheOne/napari-psf-analysis-CFIM-edition
 ```
 To install the latest version (not guaranteed to be stable)
+
+---
+Additionally, it can be installed via napari plugin manager under the name **psf-analysis-CFIM**.
+
 ## About
 
 This is a **fork** of the [napari-psf-analysis](https://github.com/fmi-faim/napari-psf-analysis) project.
