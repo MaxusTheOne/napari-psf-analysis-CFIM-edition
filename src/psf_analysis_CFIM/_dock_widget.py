@@ -10,8 +10,6 @@ from typing import overload, Tuple
 import napari.layers
 import numpy as np
 import yaml
-from fontTools.misc.arrayTools import pointsInRect
-from pandas import DataFrame
 from qtpy.QtWidgets import QLayout
 from napari import viewer
 from napari.qt.threading import FunctionWorker, thread_worker, GeneratorWorker
@@ -125,7 +123,7 @@ class PsfAnalysis(QWidget):
         self.settings = {}
 
         # UI
-        self.settings_Widget = SettingsWidget(parent=self, debug=True)
+        self.settings_Widget = SettingsWidget(parent=self)
 
         self.bead_finder = None
 
@@ -133,16 +131,12 @@ class PsfAnalysis(QWidget):
         layout = QVBoxLayout()
         layout.setSizeConstraint(QLayout.SetFixedSize)
         self.setLayout(layout)
-        self.setMinimumSize(340, 900)
         self._add_logo()
 
         setting_tabs = QTabWidget(parent=self)
 
         self._add_basic_settings_tab(setting_tabs)
         self._add_advanced_settings_tab(setting_tabs)
-
-        setting_tabs.setMinimumSize(210, 300)
-        setting_tabs.setMaximumSize(320, 320)
 
         self.layout().addWidget(setting_tabs)
         self._add_analyse_buttons()
@@ -200,7 +194,9 @@ class PsfAnalysis(QWidget):
     def _add_logo(self):
         logo = pathlib.Path(__file__).parent / "resources" / "logo.png"
         logo_label = QLabel()
-        logo_label.setText(f'<img src="{logo}" width="320">')
+        link = "https://github.com/MaxusTheOne/napari-psf-analysis-CFIM-edition?tab=readme-ov-file#readme" # TODO: Retrieve this from setup.cfg
+        logo_label.setText(f'<a href="{link}"><img src="{logo}" width="320"></a>')
+        logo_label.setOpenExternalLinks(True)
         self.layout().addWidget(logo_label)
 
     def _add_analyse_buttons(self):
@@ -559,7 +555,7 @@ class PsfAnalysis(QWidget):
         image_layers = self.image_manager.get_selected_as_list()
         print(f"Image layers len: {len(image_layers)}")
 
-        self.bead_finder = BeadFinder(image_layers, self.get_scale(), bounding_box=(
+        self.bead_finder = BeadFinder(image_layers, self.get_scale(),bead_finder_settings=self.settings["bead_finder_settings"], bounding_box=(
             self.psf_z_box_size.value(), self.psf_yx_box_size.value(), self.psf_yx_box_size.value()))
 
     def _layer_inserted(self, event):
@@ -759,10 +755,8 @@ class PsfAnalysis(QWidget):
             self.cancel.setEnabled(True)
 
     def display_final_summary(self, channel_beads, channel_zyx_fwhm, scale=None):
-        if self._debug_dict["bead_collection"]:
-            _local_debug = True
-        else:
-            _local_debug = False
+
+        _local_debug = False
 
         psf_bead_collections = self.filter_bead_matches(channel_beads)
 
@@ -909,7 +903,7 @@ class PsfAnalysis(QWidget):
 
         Parameters:
             bead_dict (dict): Keys are wavelengths (e.g., 668, 603) and values are lists of bead coordinates (zyx tuples).
-            psf_box (tuple): A tuple of (z, y, x) dimensions used to compute the max distance threshold.
+            psf_box (tuple): A tuple of (z, y, x) dimension sizes used to compute the max distance threshold.
 
         Returns:
             List of dictionaries. Each dictionary represents a matched group with one bead per channel,
@@ -921,7 +915,6 @@ class PsfAnalysis(QWidget):
 
         # Choose the anchor channel: the one with the fewest beads.
         anchor_channel = min(bead_dict, key=lambda ch: len(bead_dict[ch]))
-        print(f"Using channel {anchor_channel} as the anchor (min beads: {len(bead_dict[anchor_channel])}).")
 
         # Make a working copy of bead lists so we can remove beads once they're used.
         beads_available = {ch: list(points) for ch, points in bead_dict.items()}

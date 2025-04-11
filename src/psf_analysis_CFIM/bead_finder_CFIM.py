@@ -6,8 +6,7 @@ from skimage.feature import peak_local_max
 
 
 class BeadFinder:
-    def __init__(self, image_layers, scale: tuple, bounding_box: tuple | list[tuple]):
-        self._debug = True
+    def __init__(self, image_layers, scale: tuple, bounding_box: tuple | list[tuple], bead_finder_settings: dict):
 
         if isinstance(bounding_box, list):
             max_zyx = (0, 0, 0)
@@ -21,7 +20,8 @@ class BeadFinder:
             if self._debug:
                 print(f"Bounding box set to {bounding_box}")
 
-
+        self.settings = bead_finder_settings
+        self._debug = bead_finder_settings.get("debug", False)
         self.bounding_box_px = np.array(bounding_box) / np.array(scale)
         self.max_bead_dist = np.linalg.norm(np.array(self.bounding_box_px)) / 2
 

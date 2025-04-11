@@ -6,6 +6,9 @@ def get_default_output_folder() -> str:
     base = os.getenv('LOCALAPPDATA', os.path.expanduser('~\\AppData\\Local'))
     return os.path.join(base, "psf-analysis-cfim", "output")
 
+class BeadFinderSettings(BaseModel):
+    debug: bool = False
+
 class RenderSettings(BaseModel):
     covariance_ellipsoid: bool = False
     coordinate_annotation: bool = False
@@ -15,6 +18,7 @@ class PSFSettings(BaseModel):
 
 class AnalyzerSettings(BaseModel):
     psf_settings: PSFSettings = PSFSettings()
+    debug: bool = False
 
 class IntensitySettings(BaseModel):
     lower_warning_percent: float = Field(0.08, ge=0, le=1)
@@ -39,7 +43,7 @@ class UISettings(BaseModel):
     ri_mounting_medium: confloat(gt=0.9, lt=2) = 1.4
 
 class PSFAnalysisPluginSettings(BaseModel):
-    __version__: str = "1.3.2"
+    __version__: str = "1.3.4"
 
     debug: bool = Field(default=False)
     version: str = Field(default=__version__)
@@ -48,3 +52,5 @@ class PSFAnalysisPluginSettings(BaseModel):
     ui_settings: UISettings = UISettings()
     image_analysis_settings: ImageAnalysisSettings = ImageAnalysisSettings()
     analyzer_settings: AnalyzerSettings = AnalyzerSettings()
+    bead_finder_settings: BeadFinderSettings = BeadFinderSettings()
+

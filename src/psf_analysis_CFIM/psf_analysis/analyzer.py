@@ -44,7 +44,7 @@ class Analyzer:
         self._result_figures = {}
         self._index = 0
 
-        self._debug = os.environ.get("PSF_ANALYSIS_CFIM_DEBUG", "0") == "1"
+        self._debug = self._settings.get("debug")
 
         if self._debug:
             print(f"Debug | Analyzer for {self._wavelength} with {len(self._beads)} beads")

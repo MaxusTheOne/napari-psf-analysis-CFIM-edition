@@ -1,11 +1,8 @@
 from copy import copy
 from typing import Dict, Tuple
 
-import napari
 import numpy as np
 from matplotlib import pyplot as plt
-from matplotlib.colors import ListedColormap
-from matplotlib.lines import lineStyles
 from matplotlib_scalebar.scalebar import ScaleBar
 from mpl_toolkits.mplot3d.axis3d import Axis
 from numpy._typing import ArrayLike
@@ -64,7 +61,6 @@ class PSFRenderEngine:
             self.ellipsoid_color = ellipsoid_color
 
     def _build_layout(self, dpi: int = 300) -> None:
-        import matplotlib.pyplot as plt
 
         self._figure = plt.figure(figsize=(10, 10), dpi=dpi)
         self._add_axes()
@@ -815,7 +811,6 @@ class PSFRenderEngine:
 
         self._add_color_ellipsoids(channel_offset_dict=channel_offset_dict)
 
-        print(f"Dev | date: {date} | version: {version} | microscope: {microscope} | objective: {objective}")
         if date is not None:
             self._figure.text(0.99, 0.01, f"Acquisition date: {date}", ha="right", va="bottom", fontsize=12)
 
