@@ -805,7 +805,7 @@ class PSFRenderEngine:
         self._figure = plt.figure(figsize=(10, 10), dpi=dpi / 2) # TODO:  use dpi from input, might need to be dpi / 2
         self._ax_3d = self._figure.add_subplot(111, projection="3d")
         pos = self._ax_3d.get_position()
-        # aparently a cm is about 0.0398 inches | And the figure is in inches
+        # Apparently a cm is about 0.0398 inches | And the figure is in inches r/todayIlearned
         self._ax_3d.set_position([pos.x0, pos.y0 - 0.0787, pos.width, pos.height])
         table_ax = self._figure.add_axes((0.06, 0.790, 0.3, 0.16))
 
@@ -818,8 +818,8 @@ class PSFRenderEngine:
         # Add the logo in the corner
         l_path = pathlib.Path(__file__).parent.parent / "resources" / "logo.png"
         logo = plt.imread(l_path)
-        self._ax_3d_logo = self._figure.add_axes([0.01, 0.99, 0.1, 0.1], zorder=2)
-        # self._figure.figimage(logo, 1, 1, alpha=0.5, zorder=1)
+        ax_logo = self._figure.add_axes([0.79, 0.82, 0.2, 0.2], zorder=2)
+        ax_logo.imshow(logo)
 
         if date is not None:
             self._figure.text(0.99, 0.01, f"Acquisition date: {date}", ha="right", va="bottom", fontsize=12)

@@ -302,7 +302,6 @@ class ImageInteractionManager(QWidget):
         layer_dict = self.image_layers_reference.get(text, None)
         if layer_dict is None:
             self._pre_select = {text: True}
-            print(f"Pre-selecting {text}")
             return
         self.select_layer(self.image_layers_reference[text].get("unique_id", ""))
         self._selected_as_layers = [self._viewer.layers[text]]

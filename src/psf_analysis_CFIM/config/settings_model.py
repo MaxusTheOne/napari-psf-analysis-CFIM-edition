@@ -43,7 +43,7 @@ class UISettings(BaseModel):
     ri_mounting_medium: confloat(gt=0.9, lt=2) = 1.4
 
 class PSFAnalysisPluginSettings(BaseModel):
-    __version__: str = "1.3.4"
+    __version__: str = "1.7.5"
 
     debug: bool = Field(default=False)
     version: str = Field(default=__version__)

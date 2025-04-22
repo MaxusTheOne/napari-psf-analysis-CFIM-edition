@@ -38,6 +38,9 @@ The features from this edition are made as requested by the staff at CFIM.
 
 This edition includes the following additional features:
 
+- **Bulk Analysis for channels**: Allows for bulk analysis of multiple channels.
+  - **Combined Summary**: Adds a combined summary of all channels.
+  - **Channel Offset Table**: Adds a table with the relative offset of the channels.
 - **Bead Averaging**: Adds an image of an averaged bead from all selected.
 - **Visualisation**: Improves visualisation of the psf. Most notable color by wavelength.
   - **Range indicator** Button to mark the min and max values of the image.
