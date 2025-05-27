@@ -32,6 +32,7 @@ This is a **fork** of the [napari-psf-analysis](https://github.com/fmi-faim/napa
 
 The features from this edition are made as requested by the staff at CFIM.
 
+Please contact me through Github or mail for any issues or help with development
 ---
 
 ## Extra Features
@@ -56,11 +57,12 @@ This edition includes the following additional features:
 
 ## Known Issues
 
-- for autofilling, only .czi files are supported. Other issuses might also arise from not using .czi.
+- for autofilling, only .czi files are supported. Unlikely to work with other formats.
 - Installing plugin under paths including non-ASCII characters, like "æøå" cause unintended behavior.
-- The output.csv file is comma seperated with dot as decimal seperator, this might cause issue importing in Excel.
+- The output.csv file is comma seperated with dot as decimal seperator, this might require a legacy workaround in programs like Excel.
 - Intensity for bead finder is hardcoded for now.
 - Some images might still crash in the analysis.
+- Might have missed some requirements
 
 
 ## License
