@@ -63,6 +63,7 @@ This edition includes the following additional features:
 - Intensity for bead finder is hardcoded for now.
 - Some images might still crash in the analysis.
 - Might have missed some requirements
+- BFIO might crash some czi images being read if installed, do pip uninstall bfio if you experience this.na
 
 
 ## License

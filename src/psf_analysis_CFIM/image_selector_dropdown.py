@@ -47,28 +47,28 @@ class ImageInteractionManager(QWidget):
         self._viewer.layers.events.inserted.connect(self.update_image_references)
         self._viewer.layers.events.removed.connect(self.remove_image_references)
 
+        self._selected_uuids = set()  # Store selected layer UUIDs to avoid duplicates
+
 
     def update_image_references(self):
 
         for index, layer in enumerate(self._viewer.layers):
             if isinstance(layer, napari.layers.Image):
-                data = layer.metadata
-                if data == {}:
-                    continue
-                elif not data.get("type") in ("image", None):
-                    continue
+                metadata = layer.metadata
+
 
                 if self.image_layers_reference.has_id(layer.unique_id):
                     continue
 
                 # Keys from the layer data we want to store # Why do layers not have a .get() method?
-                data["colormap"] = layer.colormap.name
+                metadata["colormap"] = layer.colormap.name
 
                 if self._pre_select.get(layer.name, False):
-                    data["selected"] = True
+                    metadata["selected"] = True
                     self._pre_select.clear()
 
-                self.image_layers_reference[layer.name, layer.unique_id, int(layer.metadata["EmissionWavelength"])] = data
+                self.image_layers_reference[layer.name, layer.unique_id, int(layer.metadata
+                .get("EmissionWavelength", 0))] = metadata
 
 
     def remove_image_references(self):
@@ -81,6 +81,22 @@ class ImageInteractionManager(QWidget):
                 dicts_to_delete.append(uuid)
 
         self.image_layers_reference.remove(dicts_to_delete)
+
+    def remove_deleted_image_references(self):
+        """
+            Removes image references that are no longer present as layers in viewer.
+
+        """
+        layer_references = self.image_layers_reference.to_dict()
+        for uuid in layer_references:
+            uuid_exists = False
+            for layer in self._viewer.layers:
+                if layer.unique_id == uuid:
+                    uuid_exists = True
+                    break
+            if not uuid_exists:
+                self.image_layers_reference.remove(uuid)
+
 
     # image means a napari.layers.Image object
     @overload
@@ -187,7 +203,7 @@ class ImageInteractionManager(QWidget):
             return self.image_layers_reference[wavelength]["colormap"]
         except KeyError:
             print(f"Invalid wavelength: {wavelength}")
-            return ""
+            return "gray"
 
     # region dropdown methods
     def add_item(self, item):
@@ -213,6 +229,8 @@ class ImageInteractionManager(QWidget):
         return layout
 
     def open_images_clicked(self):
+
+        # self.remove_deleted_image_references()
 
         selected_images_dict = {}
         dialog = ImageSelectionDialog(parent= self, images = self.image_layers_reference)

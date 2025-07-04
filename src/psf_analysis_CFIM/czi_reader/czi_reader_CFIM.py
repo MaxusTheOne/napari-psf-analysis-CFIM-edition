@@ -4,7 +4,6 @@ from aicsimageio.readers import CziReader
 from napari.utils.notifications import show_warning
 
 from psf_analysis_CFIM.czi_reader.czi_metadata_processor import extract_key_metadata
-import numpy as np
 
 
 def truncate_filename(filename, max_chars, split_before_max=True):

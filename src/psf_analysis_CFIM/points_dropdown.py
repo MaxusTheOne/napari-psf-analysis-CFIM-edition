@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from PyQt5.QtWidgets import QComboBox
 
 
@@ -5,6 +7,7 @@ class PointsDropdown(QComboBox):
     def __init__(self, parent=None):
         super(PointsDropdown, self).__init__(parent)
         self.multi_selection = []
+        self.multi_selection_uuids = {}
         self.multi_selection_index = -1
         self.setEditable(False)
 
@@ -12,8 +15,12 @@ class PointsDropdown(QComboBox):
 
 
     # region c to python translations
-    def add_item(self, item):
-        self.addItem(item)
+    def add_item(self, item, uuid=None):
+        if not uuid:
+            self.addItem(item, 0)
+        else:
+            self.addItem(item, uuid)
+            self.multi_selection_uuids[uuid] = item
 
     def insert_item(self,index, item):
         self.insertItem(index, item)
@@ -30,7 +37,7 @@ class PointsDropdown(QComboBox):
     # endregion
 
     def get_selected(self):
-        if self.multi_selection is not []:
+        if not self.multi_selection == []:
             dropdown_names = []
             names = {}
             for index in range(self.count()):
@@ -44,6 +51,10 @@ class PointsDropdown(QComboBox):
         else:
             print("No layers selected")
             return {"0":self.currentText()}
+
+    def get_selected_uuids(self):
+        print(f"Dev | Multi selection uuids: {self.multi_selection_uuids}")
+        return self.multi_selection_uuids
 
 
     def set_multi_selection(self, index_list):
@@ -65,6 +76,26 @@ class PointsDropdown(QComboBox):
         self.add_item(text)
         self.setCurrentText(text)
         self.multi_selection_index = self.currentIndex()
+
+    def set_multi_selection_by_uuid(self, uuid_list: list[UUID]):
+        print(f"Dev | Setting multi selection by uuid: {uuid_list}")
+        self.multi_selection = uuid_list
+        if len(uuid_list) == 1:
+            index = self.find_index_by_uuid(uuid_list[0])
+            if index != -1:
+                self.setCurrentIndex(index)
+                return
+        text = f"{len(self.multi_selection)} layers selected"
+        self.add_item(text)
+        self.setCurrentText(text)
+        self.multi_selection_index = self.currentIndex()
+        self.multi_selection_uuids = {uuid: self.itemText(self.multi_selection_index) for uuid in uuid_list}
+
+    def find_index_by_uuid(self, uuid):
+        for i in range(self.count()):
+            if self.itemData(i) == uuid:
+                return i
+        return -1
 
     def _on_change(self):
         if self.currentText() != f"{len(self.multi_selection)} layers selected":

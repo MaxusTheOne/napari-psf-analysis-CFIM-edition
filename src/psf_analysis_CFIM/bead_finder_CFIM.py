@@ -8,6 +8,7 @@ from skimage.feature import peak_local_max
 class BeadFinder:
     def __init__(self, image_layers, scale: tuple, bounding_box: tuple | list[tuple], bead_finder_settings: dict):
 
+        self._debug = bead_finder_settings.get("debug", False)
         if isinstance(bounding_box, list):
             max_zyx = (0, 0, 0)
             for box in bounding_box:
@@ -21,7 +22,6 @@ class BeadFinder:
                 print(f"Bounding box set to {bounding_box}")
 
         self.settings = bead_finder_settings
-        self._debug = bead_finder_settings.get("debug", False)
         self.bounding_box_px = np.array(bounding_box) / np.array(scale)
         self.max_bead_dist = np.linalg.norm(np.array(self.bounding_box_px)) / 2
 
@@ -65,6 +65,7 @@ class BeadFinder:
                 wavelength = image_layer.metadata["EmissionWavelength"]
             except KeyError:
                 wavelength = None
+            uuid = image_layer.unique_id
 
             beads, discarded_beads = self.find_beads_for_channel(image_layer.data)
 
@@ -74,7 +75,8 @@ class BeadFinder:
             channel_beads_dict = {
                 "points": beads,
                 "discarded": discarded_beads,
-                "wavelength": wavelength
+                "wavelength": wavelength,
+                "uuid": uuid
             }
 
             channels_beads_dicts.append(channel_beads_dict)

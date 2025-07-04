@@ -236,7 +236,7 @@ class PsfAnalysis(QWidget):
         self._estimated_beads_to_viewer(points_dict_list)
 
         # Sets the point dropdown to the estimated beads
-        self.point_dropdown.set_multi_selection_by_wavelength([channel["wavelength"] for channel in points_dict_list])
+        self.point_dropdown.set_multi_selection_by_uuid([channel["uuid"] for channel in points_dict_list])
 
         for channel in points_dict_list:
             report_warning("", points=channel["discarded"])
@@ -680,18 +680,17 @@ class PsfAnalysis(QWidget):
 
         self.update_settings()
 
-        selected_image_layers = self.image_manager.get_selected_as_dict()
+        selected_image_layers = self.image_manager.get_selected_as_list()
         point_data = self._get_points_as_dict()
+        print(f"Dev | Point data: {point_data}")
 
         bead_amount = 0
         matched = {}
-        for wavelength, point_layer_ref in point_data.items():
-            for image_layer_name, image_layer in selected_image_layers.items():
-                if int(image_layer.metadata["EmissionWavelength"]) == int(wavelength):
+        for uuid, point_layer_ref in point_data.items():
+            for image_layer in selected_image_layers:
+                if image_layer.unique_id == uuid:
                     points = self.viewer.layers[point_layer_ref]
-                    matched[wavelength] = (points, image_layer)
-                    bead_amount += len(points.data)
-                    break
+                    matched[uuid] = (points,image_layer)
 
         if len(matched) == 0:
             show_warning("No matching image and point layer found.")
@@ -1002,7 +1001,7 @@ class PsfAnalysis(QWidget):
         self._channel_progress = {}
 
     def _get_points_as_dict(self):
-        point_layers = self.point_dropdown.get_selected()
+        point_layers = self.point_dropdown.get_selected_uuids()
 
         if point_layers is None:
             show_info(
