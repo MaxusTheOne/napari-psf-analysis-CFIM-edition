@@ -79,16 +79,16 @@ class BeadFinder:
 
             channels_beads_dicts.append(channel_beads_dict)
 
-        if self._debug: # It was really important to color code the output, trust me... # I should color each channel separately :D
-            green = '\033[92m'
-            yellow = '\033[93m'
-            endc = '\033[0m'
-            passed_discarded_beads = len(total_discarded_beads) + len(total_beads)
-            # TODO: Have this count correctly for multiple channels
-            print(
-                f"Beads {green}passed{endc} / {yellow}discarded{endc} of {passed_discarded_beads} for {len(self.images_list)} color channel{"s" if len(self.images_list) > 1 else ""} \nxy border: {green}{self.passed_bead_count[0]}{endc} / {yellow}{self.discarded_bead_count[0]}{endc} "
-                f"| z border: {green}{self.passed_bead_count[1]}{endc} / {yellow}{self.discarded_bead_count[1]}{endc} | neighbor dist: {green}{self.passed_bead_count[2]}{endc} / {yellow}{self.discarded_bead_count[2]}{endc}")
-            print(f"Total: {green}{len(total_beads)}{endc} / {yellow}{len(total_discarded_beads)}{endc}")
+        # if self._debug: # It was really important to color code the output, trust me... # I should color each channel separately :D
+        #     green = '\033[92m'
+        #     yellow = '\033[93m'
+        #     endc = '\033[0m'
+        #     passed_discarded_beads = len(total_discarded_beads) + len(total_beads)
+        #     # TODO: Have this count correctly for multiple channels
+        #     print(
+        #         f"Beads {green}passed{endc} / {yellow}discarded{endc} of {passed_discarded_beads} for {len(self.images_list)} color channel{"s" if len(self.images_list) > 1 else ""} \nxy border: {green}{self.passed_bead_count[0]}{endc} / {yellow}{self.discarded_bead_count[0]}{endc} "
+        #         f"| z border: {green}{self.passed_bead_count[1]}{endc} / {yellow}{self.discarded_bead_count[1]}{endc} | neighbor dist: {green}{self.passed_bead_count[2]}{endc} / {yellow}{self.discarded_bead_count[2]}{endc}")
+        #     print(f"Total: {green}{len(total_beads)}{endc} / {yellow}{len(total_discarded_beads)}{endc}")
         return channels_beads_dicts
 
     def find_beads_for_channel(self, channel_image):
