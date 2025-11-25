@@ -158,7 +158,7 @@ def filter_psf_beads_by_box(result_dict, bead_figures, psf_bbox):
         Returns:
             np.array(Figure): A List of summary figures that contain a visual PSF.
     """
-    print(f"Dict length: {len(result_dict["z_pos"])} | Bead figures: {len(bead_figures)}")
+    print(f"Dict length: {len(result_dict['z_pos'])} | Bead figures: {len(bead_figures)}")
 
     if len(result_dict["z_pos"]) != len(result_dict["y_pos"]):
         raise ValueError("Z and Y positions do not match in length.")

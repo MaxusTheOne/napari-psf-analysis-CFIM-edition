@@ -106,9 +106,9 @@ class ReportWidget(QWidget):
         variation_bead = {
             "stats_type": stats_type,
             "channel": channel,
-            "z_fwhm": f"{int(stats["z_fwhm_max"])} - {int(stats["z_fwhm_min"])}",
-            "y_fwhm": f"{int(stats["y_fwhm_max"])} - {int(stats["y_fwhm_min"])}",
-            "x_fwhm": f"{int(stats["x_fwhm_max"])} - {int(stats["x_fwhm_min"])}",
+            "z_fwhm": f"{int(stats['z_fwhm_max'])} - {int(stats['z_fwhm_min'])}",
+            "y_fwhm": f"{int(stats['y_fwhm_max'])} - {int(stats['y_fwhm_min'])}",
+            "x_fwhm": f"{int(stats['x_fwhm_max'])} - {int(stats['x_fwhm_min'])}",
         }
         self.bead_variation = variation_bead
 

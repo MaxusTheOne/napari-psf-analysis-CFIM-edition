@@ -70,7 +70,7 @@ def read_czi(path):
 
         if channels > 1:
             try:
-                metadata["name"] = f"{int(float(metadata["metadata"]["EmissionWavelength"]))}λ | {file_name_trunked}"
+                metadata["name"] = f"{int(float(metadata['metadata']['EmissionWavelength']))}λ | {file_name_trunked}"
             except KeyError:
                 metadata["name"] = f"Channel {channel} | {file_name_trunked}"
 
