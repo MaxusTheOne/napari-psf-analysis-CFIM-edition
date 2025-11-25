@@ -1017,32 +1017,7 @@ class PsfAnalysis(QWidget):
         img_layers = self.image_manager.get_selected_as_list()
         return img_layers
 
-    def _get_current_img_data(self):
-
-        img_layers = self._get_current_img_layers()
-
-        if img_layers is None or len(img_layers) == 0:
-            show_info("Please add an image and select it.")
-            return None
-
-        image_data_list = []
-        for layer in img_layers:
-            if len(layer.data.shape) != 3:
-                raise NotImplementedError(
-                    f"Only 3 dimensional data is "
-                    f"supported. Your data has {layer.data.shape} dimensions."
-                )
-
-            from bfio.bfio import BioReader
-
-            if isinstance(layer.data, BioReader):
-                img_data = np.transpose(layer.data.br.read(), [2, 0, 1]).copy()
-            else:
-                img_data = layer.data.copy()
-
-            image_data_list.append(img_data)
-
-        return image_data_list
+    
 
     @overload
     def _get_patch_size(self) -> Tuple[float, float, float]:

@@ -8,6 +8,8 @@ def get_default_output_folder() -> str:
 
 class BeadFinderSettings(BaseModel):
     debug: bool = False
+    maxima_rel: float = 0.2
+    maxima_abs: float = 0
 
 class RenderSettings(BaseModel):
     covariance_ellipsoid: bool = False
@@ -43,7 +45,7 @@ class UISettings(BaseModel):
     ri_mounting_medium: confloat(gt=0.9, lt=2) = 1.4
 
 class PSFAnalysisPluginSettings(BaseModel):
-    __version__: str = "1.7.5"
+    __version__: str = "1.7.10"
 
     debug: bool = Field(default=False)
     version: str = Field(default=__version__)

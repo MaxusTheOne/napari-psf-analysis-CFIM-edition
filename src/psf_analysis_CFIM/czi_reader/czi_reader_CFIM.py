@@ -1,10 +1,16 @@
 import os
 
-from aicsimageio.readers import CziReader
 from napari.utils.notifications import show_warning
+import importlib.util
 
 from psf_analysis_CFIM.czi_reader.czi_metadata_processor import extract_key_metadata
 import numpy as np
+
+# Fail fast at import time if `bfio` is present; `bfio` is known to
+# cause circular imports inside the optional `aicsimageio` bfio reader
+# which results in confusing import-time tracebacks. Raising a clear
+# error here gives the user an actionable message immediately.
+BFIO_PRESENT = importlib.util.find_spec("bfio") is not None
 
 
 def truncate_filename(filename, max_chars, split_before_max=True):
@@ -48,6 +54,33 @@ def read_czi(path):
             callable -> A callable that returns a list of tuples with the data, metadata and layer type.
                         Required format for napari readers.
     """
+    # If bfio is present in the environment, show a clear warning now
+    # (when the user attempts to open a .czi) so the napari notification
+    # system can display it, and then raise to stop the reader from
+    # attempting to import problematic readers.
+    if BFIO_PRESENT:
+        msg = (
+            "The installed package `bfio` is known to break CZI reading in this "
+            "environment (circular import in `bfio`).\nPlease remove `bfio` from "
+            "this environment or use a separate virtual environment without `bfio`."
+        )
+        try:
+            show_warning(msg)
+        except Exception:
+            import sys
+            print(msg, file=sys.stderr)
+        raise RuntimeError(msg)
+
+    try:
+        from aicsimageio.readers import CziReader
+    except Exception as e:
+        try:
+            show_warning(f"Failed to import `aicsimageio.readers.CziReader`: {e}")
+        except Exception:
+            import sys
+            print(f"Failed to import `aicsimageio.readers.CziReader`: {e}", file=sys.stderr)
+        raise
+
     reader = CziReader(path)
     file_name = os.path.basename(path)
     channels = reader.dims.C

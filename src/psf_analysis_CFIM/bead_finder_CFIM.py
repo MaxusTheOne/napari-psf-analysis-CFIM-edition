@@ -8,6 +8,9 @@ from skimage.feature import peak_local_max
 class BeadFinder:
     def __init__(self, image_layers, scale: tuple, bounding_box: tuple | list[tuple], bead_finder_settings: dict):
 
+        self.settings = bead_finder_settings
+        self._debug = bead_finder_settings.get("debug", False)
+
         if isinstance(bounding_box, list):
             max_zyx = (0, 0, 0)
             for box in bounding_box:
@@ -17,11 +20,9 @@ class BeadFinder:
                     raise ValueError("Bounding box must be a tuple of 3 integers.")
                 max_zyx = tuple(max(max_zyx[i], box[i]) for i in range(3))
             bounding_box = max_zyx
-            if self._debug:
-                print(f"Bounding box set to {bounding_box}")
+        if self._debug:
+            print(f"Bounding box set to {bounding_box}")
 
-        self.settings = bead_finder_settings
-        self._debug = bead_finder_settings.get("debug", False)
         self.bounding_box_px = np.array(bounding_box) / np.array(scale)
         self.max_bead_dist = np.linalg.norm(np.array(self.bounding_box_px)) / 2
 
@@ -31,8 +32,8 @@ class BeadFinder:
         self.yx_border_padding = 2 # TODO: Add to settings
         self.z_border_padding = 0
 
-        self.maxima_rel = 0.3
-        self.maxima_abs = 0
+        self.maxima_rel = bead_finder_settings.get("maxima_rel", 0.2)
+        self.maxima_abs = bead_finder_settings.get("maxima_abs", 0)
 
         self.passed_bead_count = [0, 0, 0]
         self.discarded_bead_count = [0, 0, 0]
@@ -112,9 +113,6 @@ class BeadFinder:
 
         discarded_beads = zyx_discarded_beads + yx_discarded_beads + discarded_beads_by_neighbor_dist
         return beads, discarded_beads
-
-    def get_image(self):
-        return self.image
 
     def get_scale(self):
         return self.scale

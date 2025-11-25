@@ -44,11 +44,11 @@ class ImageInteractionManager(QWidget):
         self._pre_select = {}
 
         self.image_layers_reference = MultiKeyDict()
-        self._viewer.layers.events.inserted.connect(self.update_image_references)
+        self._viewer.layers.events.inserted.connect(self.add_image_references)
         self._viewer.layers.events.removed.connect(self.remove_image_references)
 
 
-    def update_image_references(self):
+    def add_image_references(self):
 
         for index, layer in enumerate(self._viewer.layers):
             if isinstance(layer, napari.layers.Image):
@@ -81,6 +81,10 @@ class ImageInteractionManager(QWidget):
                 dicts_to_delete.append(uuid)
 
         self.image_layers_reference.remove(dicts_to_delete)
+
+    def reload_image_references(self):
+        self.image_layers_reference.clear()
+        self.add_image_references()
 
     # image means a napari.layers.Image object
     @overload
@@ -214,6 +218,7 @@ class ImageInteractionManager(QWidget):
 
     def open_images_clicked(self):
 
+        self.reload_image_references()
         selected_images_dict = {}
         dialog = ImageSelectionDialog(parent= self, images = self.image_layers_reference)
         if dialog.exec() == QDialog.Accepted:
